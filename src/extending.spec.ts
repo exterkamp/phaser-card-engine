@@ -13,8 +13,11 @@ import {
 type CardMark = 'gilded' | 'warded' | 'snake';
 
 // And its deck can hold a suit that no standard deck has. The game declares
-// it; this package never hears the word.
-const NERTZ_SUITS = defineSuits({ star: { red: false } });
+// it, and declares what its rules should treat it as: a star is drawn in gold
+// and plays as black, because that game's tableau builds in alternating
+// colours and a star ace is just an ace there. This package never hears the
+// word.
+const NERTZ_SUITS = defineSuits({ star: { colour: 'black' } });
 type NertzSuit = SuitOf<typeof NERTZ_SUITS>;
 
 interface NertzCard extends Card<NertzSuit> {
@@ -51,7 +54,8 @@ describe('a suit the package does not know', () => {
       id: 's1-star-A-0', suit: 'star', rank: 'A', faceUp: true, seat: 1, entry: 0,
     };
     expect(NERTZ_SUITS.isStandard(star.suit)).toBe(false);
-    expect(NERTZ_SUITS.isRed(star.suit)).toBe(false);
+    expect(NERTZ_SUITS.isBlack(star.suit)).toBe(true);
+    expect(NERTZ_SUITS.sameColour('star', 'clubs')).toBe(true);
     expectTypeOf(star.suit).toEqualTypeOf<NertzSuit>();
   });
 

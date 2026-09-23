@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.2.0
+npm install github:exterkamp/phaser-card-engine#v0.3.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -30,7 +30,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 
 | | |
 | --- | --- |
-| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `SUITS`, `RANKS`, `Suit`, `Rank`, `rankValue`, `isRed`, `sameColour`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
+| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
@@ -71,25 +71,40 @@ There is no list of non-standard suits in this package. An earlier version had
 one — a `SPECIAL_SUITS` array with `star` in it — which made every consumer
 carry a suit only one of them has ever heard of, and made that consumer ask
 permission to add its own. Now the four standard suits are here and anything
-else is declared where it is used:
+else is declared where it is used, **with the colour its rules should treat it
+as**:
 
 ```ts
-const SUITS_IN_PLAY = defineSuits({ star: { red: false }, rose: { red: true } });
+const SUITS_IN_PLAY = defineSuits({ star: { colour: 'black' }, rose: { colour: 'red' } });
 
-SUITS_IN_PLAY.isRed('rose');        // true — the game decides
+SUITS_IN_PLAY.colourOf('star');     // 'black'
 SUITS_IN_PLAY.isStandard('star');   // false — this is what "special" meant
 SUITS_IN_PLAY.all;                  // the four, then yours
 ```
 
-`defineSuits` returns a value your game exports rather than mutating a
-registry, deliberately: a registry has to be written to before anything reads
-it, which is an ordering problem in the app and a shared-state problem in its
-tests.
+### Colour is a value, not a boolean
 
-The free `isRed` and `sameColour` take any string and answer for the four, so
-a suit this package has never heard of is not red — which is the right answer
-for a rule about red and black to give about a gold star, and is what nertz
-already relies on today.
+`isRed` alone is a trap once suits are open-ended, because **"not red" stops
+meaning "black"**. A gold star is neither, and a package that answered `false`
+to `isRed` and let you infer black would be putting one game's rule into
+everybody's cards. So:
+
+| | |
+| --- | --- |
+| `colourOf(suit)` | `'red'`, `'black'`, or **undefined** for a suit this package does not know |
+| `isRed` / `isBlack` | both, and both `false` for an unknown suit — which is why there are two rather than one and a negation |
+| `sameColour(a, b)` | `false` if either suit is unknown, because the honest answer about an unknown colour is not "yes" |
+
+A vocabulary always has an answer, because every suit in it was declared:
+`SUITS_IN_PLAY.colourOf('star')` is `'black'`, and `sameColour('star', 'clubs')`
+is `true`.
+
+The distinction that makes this worth the trouble: **the colour a rule asks
+about is not always the colour the card is printed in.** Nertz's star is drawn
+in gold and counts as black on its tableau, which builds in alternating
+colours. It declares `{ colour: 'black' }` and paints gold itself. A game
+wanting a suit that genuinely belongs to neither colour says
+`{ colour: 'gold' }` and gets `false` from both questions.
 
 ### The helpers keep your type
 
@@ -154,8 +169,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.2.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.2.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.3.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.3.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

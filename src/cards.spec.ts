@@ -7,7 +7,9 @@ import {
   STANDARD_SUITS,
   SUITS,
   cardName,
+  colourOf,
   defineSuits,
+  isBlack,
   isRed,
   isStandardSuit,
   rankValue,
@@ -53,36 +55,70 @@ describe('suits and colours', () => {
     expect(isStandardSuit('star')).toBe(false);
   });
 
-  // A suit this package has never heard of is not red, which is the right
-  // answer for a rule about red and black to give about a gold star.
-  it('calls an unknown suit black rather than refusing to answer', () => {
+  it('gives the four their colours', () => {
+    expect(SUITS.map(colourOf)).toEqual(['black', 'red', 'red', 'black']);
+    expect(SUITS.filter(isRed)).toEqual(['hearts', 'diamonds']);
+    expect(SUITS.filter(isBlack)).toEqual(['spades', 'clubs']);
+  });
+
+  // The reason isBlack exists rather than !isRed: once a game can add suits,
+  // "not red" stops meaning "black", and a gold star is neither.
+  it('says nothing about the colour of a suit it has never heard of', () => {
+    expect(colourOf('star')).toBeUndefined();
     expect(isRed('star')).toBe(false);
-    expect(sameColour('star', 'spades')).toBe(true);
+    expect(isBlack('star')).toBe(false);
+  });
+
+  it('will not call an unknown suit the same colour as anything', () => {
+    expect(sameColour('star', 'spades')).toBe(false);
     expect(sameColour('star', 'hearts')).toBe(false);
+    expect(sameColour('star', 'star')).toBe(false);
+    expect(sameColour('spades', 'clubs')).toBe(true);
   });
 });
 
 describe('a game adding suits of its own', () => {
   it('gets them in the vocabulary without this package knowing them', () => {
-    const vocab = defineSuits({ star: { red: false }, rose: { red: true } });
+    const vocab = defineSuits({ star: { colour: 'gold' }, rose: { colour: 'red' } });
     expect(vocab.all).toEqual([...SUITS, 'star', 'rose']);
     expect(vocab.isStandard('star')).toBe(false);
     expect(vocab.isStandard('hearts')).toBe(true);
   });
 
   it('decides for itself what colour they are', () => {
-    const vocab = defineSuits({ star: { red: false }, rose: { red: true } });
-    expect(vocab.isRed('star')).toBe(false);
+    const vocab = defineSuits({ star: { colour: 'gold' }, rose: { colour: 'red' } });
+    expect(vocab.colourOf('star')).toBe('gold');
     expect(vocab.isRed('rose')).toBe(true);
     expect(vocab.sameColour('rose', 'hearts')).toBe(true);
+  });
+
+  // A suit that is neither red nor black is both questions answered no, which
+  // is what stops a rule about alternating colours quietly swallowing it.
+  it('lets a suit be neither red nor black', () => {
+    const vocab = defineSuits({ star: { colour: 'gold' } });
+    expect(vocab.isRed('star')).toBe(false);
+    expect(vocab.isBlack('star')).toBe(false);
+    expect(vocab.sameColour('star', 'spades')).toBe(false);
+    expect(vocab.sameColour('star', 'hearts')).toBe(false);
+    // Two golds are the same colour as each other, though.
+    expect(vocab.sameColour('star', 'star')).toBe(true);
+  });
+
+  // And a game whose rules want the new suit treated as one of the two says
+  // so - which is nertz's case, where a star is gold on the card and black to
+  // the tableau.
+  it('lets a suit play as black while being printed in gold', () => {
+    const vocab = defineSuits({ star: { colour: 'black' } });
+    expect(vocab.isBlack('star')).toBe(true);
     expect(vocab.sameColour('star', 'clubs')).toBe(true);
+    expect(vocab.sameColour('star', 'hearts')).toBe(false);
   });
 
   it('leaves the four standard suits exactly as they were', () => {
-    const vocab = defineSuits({ rose: { red: true } });
-    expect(SUITS.map((s) => vocab.isRed(s))).toEqual(SUITS.map(isRed));
-    // And the shared set is not mutated by anybody defining anything.
-    expect(isRed('rose')).toBe(false);
+    const vocab = defineSuits({ rose: { colour: 'red' } });
+    expect(SUITS.map((s) => vocab.colourOf(s))).toEqual(SUITS.map(colourOf));
+    // And nothing global is mutated by anybody defining anything.
+    expect(colourOf('rose')).toBeUndefined();
   });
 
   it('is the four and nothing else when a game adds none', () => {
