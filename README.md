@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.1.1
+npm install github:exterkamp/phaser-card-engine#v0.1.2
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
