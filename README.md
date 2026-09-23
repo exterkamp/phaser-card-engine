@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.4.0
+npm install github:exterkamp/phaser-card-engine#v0.4.1
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -182,8 +182,13 @@ tested. Phaser's job is to draw a card at the point this hands it.
 
 ```bash
 npm install
-npm run demo        # http://localhost:4390
+npm run demo        # http://localhost:4390, and the LAN address it prints
 ```
+
+It binds every interface, because a card game is tested with a thumb: `npm run
+demo` prints a **Network** address alongside the local one, and that is the one
+to open on a phone. `npm run demo:serve` does the same for the built demo on
+4391.
 
 A Phaser board made of nothing but stacks: four squared foundations, a deck,
 and six columns dealt three to thirteen cards deep. There are no rules — any
@@ -192,6 +197,11 @@ showing the placement. Drag a card and the stack it is being offered to lights
 up where the card would land; **Toggle squeeze** switches `maxSpread` between
 190 and unlimited, and the thirteen-card column goes from fanning at 26 units a
 card to 15.8.
+
+On a touchscreen the canvas captures its own gestures — without that a drag is
+also a page scroll, and the card sits still while the whole demo slides up the
+screen. Checked with emulated touch at 412×915 rather than assumed, because a
+mouse never finds it.
 
 The demo draws its own crude card — a rounded rectangle, the index in the
 engine's own index face, and the engine's suit glyph, with the real painted art
@@ -238,8 +248,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.4.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.4.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.4.1` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.4.1.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

@@ -24,7 +24,10 @@ import { CardView, preload } from './cards.js';
 // What the demo is showing is the placement primitive - where a stack is,
 // where its nth card sits, and which stack a dragged card is being offered to.
 const WIDTH = 480;
-const HEIGHT = 720;
+// Tall enough for the longest column at full fan (210 + 312 + a card) and no
+// taller. The board is fitted by width on a phone, so every unit of height
+// beyond what the cards use is green nobody plays on.
+const HEIGHT = 640;
 const MARGIN = 12;
 const COLUMNS = 6;
 const PITCH = (WIDTH - 2 * MARGIN) / COLUMNS;
@@ -252,6 +255,11 @@ const game = new Phaser.Game({
   height: HEIGHT,
   backgroundColor: '#13463a',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
+  // Let Phaser preventDefault the touches it handles. Without this a drag on
+  // a phone is also a page scroll, and the card stays where it was while the
+  // whole demo slides up the screen - which is the first thing anybody
+  // testing this on a phone would hit.
+  input: { touch: { capture: true } },
   scene: StackDemo,
 });
 

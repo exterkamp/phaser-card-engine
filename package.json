@@ -1,6 +1,6 @@
 {
   "name": "phaser-card-engine",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "The shared half of two card games: card art, suits, ranks, deck themes, shuffling and the typefaces.",
   "license": "CC0-1.0",
   "type": "module",
@@ -26,7 +26,8 @@
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.spec.json",
     "demo": "vite",
-    "demo:build": "vite build"
+    "demo:build": "vite build",
+    "demo:serve": "vite preview"
   },
   "devDependencies": {
     "typescript": "~5.9.0",

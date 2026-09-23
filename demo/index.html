@@ -33,7 +33,9 @@
       body { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.8rem; box-sizing: border-box; }
       h1 { font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem; letter-spacing: 0.06em; margin: 0; color: #fdfdfd; text-transform: uppercase; }
       p { margin: 0; font-size: 0.8rem; text-align: center; max-width: 30rem; color: #9fc4a4; }
-      #board { width: min(480px, 100%); flex: 1; }
+      /* The canvas handles its own gestures; without this a drag is also a
+         page scroll on a touchscreen. */
+      #board { width: min(480px, 100%); flex: 1; touch-action: none; }
       .row { display: flex; gap: 0.5rem; }
       button {
         font-family: 'Cinzel', Georgia, serif; font-size: 0.75rem; letter-spacing: 0.05em;
