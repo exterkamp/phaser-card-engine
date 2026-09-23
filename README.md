@@ -13,8 +13,11 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.1.0
+npm install github:exterkamp/phaser-card-engine#v0.1.1
 ```
+
+The build image needs `git` — see [Installing it](#installing-it), which has
+the one line nertz's Dockerfile wants.
 
 ```ts
 import { standardDeck, shuffle, seeded, deckThemePath, rankValue } from 'phaser-card-engine';
