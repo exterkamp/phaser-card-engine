@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { Stack, stackDepths } from '../index.js';
 
 // A board that is actually as sharp as the screen it is on.
 //
@@ -71,11 +72,44 @@ export function boardPixelRatio(scene: Phaser.Scene): number {
  * every label to what it returns. Anything added to the scene directly is in
  * canvas pixels instead, which on a 2x screen is half the size and in the
  * wrong place.
+ *
+ * **Depth does not sort itself in here.** A Container paints its children in
+ * the order of its own list, and `setDepth` queues a sort of the *Scene's*
+ * display list rather than the container's - so a card given a lower depth
+ * than the one before it still paints on top. Use `orderStack` below, which
+ * is the thing that sorts. This cost a release: the stack order option
+ * shipped working, everything moved into a root container for the pixel
+ * ratio, and every first-on-top pile silently went back to last-on-top.
  */
 export function boardRoot(scene: Phaser.Scene): Phaser.GameObjects.Container {
   const root = scene.add.container(0, 0);
   root.setScale(boardPixelRatio(scene));
   return root;
+}
+
+/**
+ * Puts one stack's sprites in the order its `order` asks for.
+ *
+ * Sets each sprite's depth from `stackDepths` and then sorts the container,
+ * because a Container will not do the second part on its own - see the note
+ * on `boardRoot`.
+ *
+ * `base` separates one pile from another: give each stack a band of its own
+ * (its index times a hundred, say) and piles keep their relative order
+ * instead of interleaving wherever two of them overlap. A card in hand wants
+ * a base above all of them.
+ */
+export function orderStack(
+  container: Phaser.GameObjects.Container,
+  sprites: readonly Phaser.GameObjects.GameObject[],
+  stack: Stack,
+  base = 0,
+): void {
+  const depths = stackDepths(stack, sprites.length);
+  sprites.forEach((sprite, i) => {
+    (sprite as Phaser.GameObjects.Container).setDepth(base + depths[i]);
+  });
+  container.sort('depth');
 }
 
 /**

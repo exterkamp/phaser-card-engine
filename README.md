@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.7.0
+npm install github:exterkamp/phaser-card-engine#v0.7.1
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -31,7 +31,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | | |
 | --- | --- |
 | `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
-| `phaser/` | `createBoard`, `boardRoot`, `toBoard`, `CardSprite` and `preloadCardArt`, behind `phaser-card-engine/phaser` |
+| `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite` and `preloadCardArt`, behind `phaser-card-engine/phaser` |
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
@@ -320,7 +320,22 @@ that.
 
 `createBoard` makes the canvas `size × pixelRatio` and `boardRoot` gives you a
 container scaled by the same factor, so every coordinate you write stays in
-logical units and only the density goes up. `toBoard` converts a pointer back,
+logical units and only the density goes up.
+
+**Depth does not sort itself inside that container.** A Phaser Container paints
+its children in the order of its own list, and `setDepth` queues a sort of the
+*Scene's* display list rather than the container's — so a card given a lower
+depth than the one before it still paints on top. Use `orderStack`, which sets
+the depths and sorts:
+
+```ts
+orderStack(this.root, pile.cards, pile.stack, pileIndex * 100);
+```
+
+The `base` gives each pile a band of its own so two overlapping piles keep
+their relative order. This one cost a release: stack order shipped working,
+everything moved into a root container for the pixel ratio, and every
+`first-on-top` pile silently went back to `last-on-top`. `toBoard` converts a pointer back,
 because Phaser reports those in canvas pixels — forget it and a drag follows
 the finger at twice the distance. `CardSprite` takes the board's ratio for its
 own text and textures unless you override it.
@@ -362,8 +377,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.7.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.7.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.7.1` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.7.1.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain
@@ -393,9 +408,17 @@ directory.
 
 ```bash
 npm install
-npm test        # vitest, 28 tests, no browser
+npm test        # vitest and a typecheck, no browser
 npm run build   # tsc to dist/, which `prepare` also does on install
+npm run demo    # the demo, on localhost and the LAN address it prints
+npm run smoke   # drives the running demo in a real browser
 ```
+
+`npm run smoke` is the half the unit tests cannot reach: it checks that the
+canvas is at screen density, that every stack paints the end it asked for in
+front, and that a dropped card joins the pile. It exists because of the
+`orderStack` bug above — every depth was correct and every card was painted in
+the wrong order, which no test of the numbers could have caught.
 
 The emitted ESM uses explicit `.js` specifiers because real ESM requires them:
 extensionless relative imports resolve fine inside a bundler and throw in plain

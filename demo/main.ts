@@ -15,12 +15,13 @@ import {
   nextPosition,
   seeded,
   shuffle,
-  stackDepths,
   stackPositions,
   stackUnder,
   topCardIndex,
 } from 'phaser-card-engine';
-import { CardSprite, boardRoot, createBoard, preloadCardArt, toBoard } from 'phaser-card-engine/phaser';
+import {
+  CardSprite, boardRoot, createBoard, orderStack, preloadCardArt, toBoard,
+} from 'phaser-card-engine/phaser';
 
 // A board made of nothing but stacks.
 //
@@ -274,14 +275,13 @@ class StackDemo extends Phaser.Scene {
 
   private layOut(pile: Pile): void {
     const at = stackPositions(pile.stack, pile.cards.length);
-    // Where each card goes, and which of them is drawn over the others. The
-    // positions are the same whichever order the stack is in; only these
-    // depths change, and they are the whole difference on screen.
-    const depth = stackDepths(pile.stack, pile.cards.length);
-    pile.cards.forEach((view, i) => {
-      view.setPosition(at[i].x, at[i].y);
-      view.setDepth(1 + depth[i]);
-    });
+    pile.cards.forEach((view, i) => view.setPosition(at[i].x, at[i].y));
+    // And which of them is drawn over the others. The positions are the same
+    // whichever order the stack is in; this is the whole difference on
+    // screen, and inside a container it takes a sort rather than a depth.
+    // Each pile gets a band of its own so two overlapping piles keep their
+    // relative order.
+    orderStack(this.root, pile.cards, pile.stack, this.piles.indexOf(pile) * 100);
   }
 
   private layOutAll(): void {
@@ -289,6 +289,9 @@ class StackDemo extends Phaser.Scene {
   }
 
   // --- dragging ------------------------------------------------------------
+
+  /** Above every pile's band, so a card in hand is over everything. */
+  private static readonly HELD_DEPTH = 10000;
 
   private pickUp(view: CardSprite): void {
     const from = this.piles.find((pile) => pile.cards.includes(view));
@@ -300,7 +303,8 @@ class StackDemo extends Phaser.Scene {
     const front = topCardIndex(from.stack, from.cards.length);
     if (front === undefined || from.cards[front] !== view) return;
     this.dragging = { view, from, offset: new Phaser.Math.Vector2(0, 0) };
-    view.setDepth(100);
+    view.setDepth(StackDemo.HELD_DEPTH);
+    this.root.sort('depth');
   }
 
   private carry(pointer: Phaser.Input.Pointer): void {
