@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.3.0
+npm install github:exterkamp/phaser-card-engine#v0.3.1
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -55,7 +55,7 @@ Nertz's is this plus what it needs, over a suit set of its own:
 ```ts
 interface SolitaireCard extends Card {}                 // the four suits
 
-const NERTZ_SUITS = defineSuits({ star: { red: false } });
+const NERTZ_SUITS = defineSuits({ star: { colour: 'black' } });   // gold on the card
 type NertzSuit = SuitOf<typeof NERTZ_SUITS>;            // Suit | 'star'
 
 interface NertzCard extends Card<NertzSuit> {
@@ -169,8 +169,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.3.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.3.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.3.1` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.3.1.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain
