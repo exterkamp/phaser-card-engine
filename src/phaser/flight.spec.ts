@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { defineHand, handPositions } from '../hand.js';
 import { defineStack } from '../stack.js';
 import { dealCards, flightDuration, landingsFor, spinTarget, throwCard, throwLanding } from './flight.js';
 
@@ -148,5 +149,45 @@ describe('dealing several', () => {
     await dealCards(scene, cards, { stack, count: 0 }, { stagger: 50, pop: false });
     expect(tweens.map((t) => t['delay'])).toEqual([0, 50, 100]);
     expect(tweens.map((t) => t['y'])).toEqual([0, 20, 40]);
+  });
+});
+
+describe('throwing into a hand', () => {
+  const hand = defineHand({ id: 'h', x: 100, y: 300, step: 10, maxSpread: 0, radius: 200 });
+
+  it('lands at the place in the fan, and at the angle it is held at', () => {
+    const landing = throwLanding({ hand, count: 2 });
+    const expected = handPositions(hand, 3)[2];
+    expect(landing.x).toBeCloseTo(expected.x);
+    expect(landing.y).toBeCloseTo(expected.y);
+    expect(landing.angle).toBeCloseTo(expected.angle);
+  });
+
+  // A card that settled square and was then redrawn at 10 degrees by the hand
+  // would jump on arrival - the same artefact the exact landing exists for.
+  it('settles at the hand-s angle rather than upright', async () => {
+    const { scene } = stubScene();
+    const card = stubCard(0, 0);
+    await throwCard(scene, card, { hand, count: 2 });
+    expect(card.setAngle).toHaveBeenCalledWith(handPositions(hand, 3)[2].angle);
+  });
+
+  it('is overridden when the caller asks for a particular angle', async () => {
+    const { scene } = stubScene();
+    const card = stubCard(0, 0);
+    await throwCard(scene, card, { hand, count: 0 }, { settleAngle: 45 });
+    expect(card.setAngle).toHaveBeenCalledWith(45);
+  });
+
+  // Dealing into a hand is not dealing onto a pile: every card that arrives
+  // moves every card already there, so they all aim at the finished fan.
+  it('deals into the hand as it will be, not as it is', () => {
+    const places = landingsFor({ hand, count: 0 }, 3);
+    expect(places.map((p) => p.angle)).toEqual([-10, 0, 10]);
+  });
+
+  it('deals onto the end of a hand that already holds cards', () => {
+    const places = landingsFor({ hand, count: 2 }, 2);
+    expect(places).toEqual(handPositions(hand, 4).slice(2));
   });
 });

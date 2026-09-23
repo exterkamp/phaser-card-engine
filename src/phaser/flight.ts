@@ -1,5 +1,7 @@
 import type Phaser from 'phaser';
-import { Stack, nextPosition, stackPositions } from '../index.js';
+import {
+  Hand, Stack, handPositions, nextHandPlace, nextPosition, stackPositions,
+} from '../index.js';
 
 // Throwing a card.
 //
@@ -18,27 +20,39 @@ import { Stack, nextPosition, stackPositions } from '../index.js';
 // what leaves the card upright; the jitter is what stops ten consecutive
 // throws looking like one animation played ten times.
 
-/** Where a card can be thrown: a point, a stack, or a place in a stack. */
+/** Where a card can be thrown: a point, a stack, a hand, or a place in one. */
 export type ThrowTarget =
-  | { x: number; y: number }
+  | { x: number; y: number; angle?: number }
   | Stack
-  | { stack: Stack; count: number; gapBefore?: (index: number) => number };
+  | Hand
+  | { stack: Stack; count: number; gapBefore?: (index: number) => number }
+  | { hand: Hand; count: number };
 
 function isStack(target: ThrowTarget): target is Stack {
   return (target as Stack).fan !== undefined && (target as Stack).id !== undefined;
 }
 
+function isHand(target: ThrowTarget): target is Hand {
+  return (target as Hand).radius !== undefined && (target as Hand).facing !== undefined;
+}
+
 /**
- * Where a throw at this target lands.
+ * Where a throw at this target lands, and at what angle.
  *
- * A bare point lands on itself. A stack lands where its *next* card goes, so
- * throwing at a pile of six puts the card on top of the six rather than
- * underneath them - which is the thing anybody means by throwing a card at a
- * pile.
+ * A bare point lands on itself, square unless it says otherwise. A stack lands
+ * where its *next* card goes - throwing at a pile of six puts the card on top
+ * of the six rather than underneath them, which is what anybody means by
+ * throwing a card at a pile. A hand lands in the fan, at the angle that card
+ * is held at, which is the part that matters: a card thrown into a hand and
+ * settled square would jump the moment the hand redrew it.
  */
-export function throwLanding(target: ThrowTarget): { x: number; y: number } {
+export function throwLanding(
+  target: ThrowTarget,
+): { x: number; y: number; angle?: number } {
   if (isStack(target)) return nextPosition(target, 0);
+  if (isHand(target)) return nextHandPlace(target, 0);
   if ('stack' in target) return nextPosition(target.stack, target.count, target.gapBefore);
+  if ('hand' in target) return nextHandPlace(target.hand, target.count);
   return target;
 }
 
@@ -126,7 +140,9 @@ export function throwCard(
   const landing = throwLanding(target);
   const distance = Math.hypot(landing.x - sprite.x, landing.y - sprite.y);
   const duration = options.duration ?? flightDuration(distance);
-  const settleAngle = options.settleAngle ?? 0;
+  // The target's own angle, when it has one: a card joining a hand has to
+  // arrive at the angle that hand holds it at.
+  const settleAngle = options.settleAngle ?? landing.angle ?? 0;
   const spins = options.spins ?? 1;
 
   return new Promise((resolve) => {
@@ -204,12 +220,22 @@ export function dealCards(
 }
 
 /** Where each of `count` cards thrown at this target should land. */
-export function landingsFor(target: ThrowTarget, count: number): { x: number; y: number }[] {
+export function landingsFor(
+  target: ThrowTarget, count: number,
+): { x: number; y: number; angle?: number }[] {
   if (isStack(target)) return stackPositions(target, count);
+  if (isHand(target)) return handPositions(target, count);
   if ('stack' in target) {
     // Onto the end of what is already there.
     const all = stackPositions(target.stack, target.count + count, target.gapBefore);
     return all.slice(target.count);
+  }
+  if ('hand' in target) {
+    // Into the hand as it will be once they have all arrived - a hand re-fans
+    // around its middle every time, so dealing five means every card lands
+    // where it sits in the hand of five and not where it would sit in the
+    // hand of one.
+    return handPositions(target.hand, target.count + count).slice(target.count);
   }
   return Array.from({ length: count }, () => target);
 }

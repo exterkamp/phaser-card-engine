@@ -42,6 +42,7 @@ export default defineConfig({
         sizes: resolve(__dirname, 'demo/sizes.html'),
         throws: resolve(__dirname, 'demo/throws.html'),
         holdem: resolve(__dirname, 'demo/holdem.html'),
+        hands: resolve(__dirname, 'demo/hands.html'),
       },
     },
   },

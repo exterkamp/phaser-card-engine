@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.9.0
+npm install github:exterkamp/phaser-card-engine#v0.10.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -32,6 +32,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | --- | --- |
 | `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
 | `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite`, `preloadCardArt`, `throwCard` and `dealCards`, behind `phaser-card-engine/phaser` |
+| `hand.ts` | `Hand` and `defineHand`, `handPositions`, `nextHandPlace`, `handBounds` — cards held in a fan rather than stacked |
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
@@ -225,6 +226,8 @@ Three pages:
   or tap a pile to throw one onto it
 - **hold'em** at `/holdem.html` — four seats dealt automatically, the way a
   dealer deals it
+- **hands** at `/hands.html` — a fanned hand you can throw cards into, one
+  face up in front of you and one turned round across the table
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -270,6 +273,48 @@ is the next thing to take and the subject of the section below.
 Vite serves the package's own `assets/` as the site root, so `/cards/art/...`
 in the browser is exactly what `deckThemePath` returns — the demo is a
 consumer, and that contract is tested by being used.
+
+## Hands: cards held, not stacked
+
+A stack is cards on a table — every card parallel, each offset along a line. A
+hand is cards in a fist, and it is a different shape: they pivot around the
+point where they are gripped, so each is turned a little further than the last
+and the fan bulges upward in the middle. Riffling a hand open is a rotation,
+not a slide.
+
+```ts
+const mine = defineHand({
+  id: 'mine', x: 240, y: 540,
+  step: 9,            // degrees between one card and the next
+  maxSpread: 70,      // the most the fan may open to
+  radius: 260,        // how far below the cards it is gripped
+});
+const theirs = defineHand({ ...mine, y: 110, facing: 180 });   // across the table
+
+handPositions(mine, 7);     // { x, y, angle } for each card
+nextHandPlace(mine, 7);     // where an eighth would sit
+```
+
+`step` and `maxSpread` mean exactly what they mean for a stack — degrees
+instead of units — and a hand of thirteen holds the same width as a hand of
+five and simply packs tighter, which is the same squeeze a tableau column does.
+
+**`radius` is the size of the fan, not its curviness.** Every card sits at
+`radius · sin(angle)` across and `radius · (1 − cos(angle))` down, so doubling
+it doubles both the spacing and the sag and the arc keeps identical
+proportions. What decides how curved a hand *looks* is how far it is opened. I
+had that backwards in the first draft of this file and only caught it by
+driving the demo and reading the numbers back.
+
+**A hand re-fans around its middle every time a card arrives**, so every other
+card moves too — which is why `nextHandPlace(hand, n)` is the place in the hand
+*as it will be*, and why `dealCards` into a hand aims every card at the
+finished fan rather than at where it would sit on its own.
+
+`throwCard` knows about hands: throw one at `{ hand, count }` and it lands at
+the position **and the angle** that hand holds it at. Settling square and
+letting the hand redraw it at 10° would produce exactly the snap the exact
+landing exists to prevent.
 
 ## Drawing a card
 
@@ -453,8 +498,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.9.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.9.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.10.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.10.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain
