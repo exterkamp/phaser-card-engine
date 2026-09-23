@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.1.2
+npm install github:exterkamp/phaser-card-engine#v0.1.3
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -120,14 +120,36 @@ The fonts are the same idea, with `output: "fonts"` — but the app still has to
 declare its own `@font-face` rules over them. This package names the families
 for the canvas; it does not style your DOM.
 
-## Why a GitHub dependency
+## Installing it
 
-Both consumers can install from a public GitHub repo with no registry, no
-token and no login: `npm ci` fetches a tarball over https, and the `prepare`
-script builds the TypeScript on install. That matters because the two apps
-build differently — solitaire builds on the host and its image copies `dist/`,
-while nertz runs `npm ci` and `ng build` *inside* its Docker image, where a
-`file:../phaser-card-engine` path does not exist.
+No registry, no token, no login: the repo is public and npm fetches it over
+https. `dist/` is not committed, so the `prepare` script builds the TypeScript
+at install time — which is what decides the one requirement below.
+
+| How you ask for it | needs `git` | runs `prepare` | works |
+| --- | --- | --- | --- |
+| `github:exterkamp/phaser-card-engine#v0.1.3` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.1.3.tar.gz` | no | no | ❌ no `dist/` |
+
+**`git` has to be in the image.** npm shells out to it to resolve a GitHub
+dependency at all, and `prepare` only runs for git dependencies — so the plain
+tarball, which is the obvious workaround, installs happily and then cannot be
+imported. Both facts were checked inside `node:24-alpine` rather than reasoned
+about; an earlier version of this section claimed no git was needed and was
+wrong on both counts.
+
+Solitaire builds on the host, where git is already there. Nertz runs `npm ci`
+and `ng build` *inside* `node:24-alpine`, which ships without it, so its build
+stage wants one line:
+
+```dockerfile
+RUN apk add --no-cache git
+COPY package.json package-lock.json ./
+RUN npm ci
+```
+
+That is also why this is a GitHub dependency and not a `file:../` path: the
+sibling directory does not exist inside that image.
 
 Pin a tag per app. An engine change then cannot break a deploy until that app
 chooses to bump, which is the whole reason this is a package and not a shared
