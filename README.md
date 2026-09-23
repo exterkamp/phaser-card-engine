@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.6.0
+npm install github:exterkamp/phaser-card-engine#v0.7.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -31,7 +31,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | | |
 | --- | --- |
 | `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
-| `phaser/` | `CardSprite` and `preloadCardArt`, behind `phaser-card-engine/phaser` |
+| `phaser/` | `createBoard`, `boardRoot`, `toBoard`, `CardSprite` and `preloadCardArt`, behind `phaser-card-engine/phaser` |
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
@@ -295,6 +295,36 @@ to show for its index to be read — 29.4 units on a 60-unit card. That is the
 number a fanned stack's `step` should be chosen against, and the stacks demo
 squeezes past it on purpose so you can see what it costs.
 
+### Make the board first, or nothing will be sharp
+
+```ts
+const game = createBoard({ parent: 'board', width: 480, height: 640, scene: MyScene });
+
+// in the scene's create:
+this.root = boardRoot(this);        // everything goes in here
+this.root.add(new CardSprite(this, card));
+toBoard(this, pointer);             // a pointer, in board units
+```
+
+Phaser has no HiDPI support of its own — the old `resolution` config was
+removed years ago — so a game created at 480×640 gets a canvas with a 480×640
+backing store, and `Scale.FIT` stretches that over however many device pixels
+the element covers. On a phone at `devicePixelRatio` 2 that is 480 real pixels
+smeared across 824, and **every card on it is an upscaled card**.
+
+Measured on this demo before `createBoard` existed: **0.62 backing pixels per
+device pixel.** Small cards were visibly worse than the same cards in the game
+this art came from, which runs at 1.17. It was never antialiasing — the canvas
+was simply under-resolved, and the smaller the card the less it could afford
+that.
+
+`createBoard` makes the canvas `size × pixelRatio` and `boardRoot` gives you a
+container scaled by the same factor, so every coordinate you write stays in
+logical units and only the density goes up. `toBoard` converts a pointer back,
+because Phaser reports those in canvas pixels — forget it and a drag follows
+the finger at twice the distance. `CardSprite` takes the board's ratio for its
+own text and textures unless you override it.
+
 `phaser` is an optional peer dependency and all of this lives behind
 `phaser-card-engine/phaser`, so a game that only wants the cards, the shuffling
 and the stack geometry never installs it.
@@ -332,8 +362,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.6.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.6.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.7.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.7.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

@@ -9,7 +9,7 @@ import {
   buildDeck,
   cardFaceMetrics,
 } from 'phaser-card-engine';
-import { CardSprite, preloadCardArt } from 'phaser-card-engine/phaser';
+import { CardSprite, boardRoot, createBoard, preloadCardArt } from 'phaser-card-engine/phaser';
 
 // The same card at seven sizes.
 //
@@ -41,6 +41,7 @@ class SizesDemo extends Phaser.Scene {
   private sample = 0;
   private cards: CardSprite[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
+  private root!: Phaser.GameObjects.Container;
 
   preload(): void {
     preloadCardArt(this, { themes: DECK_THEMES });
@@ -48,6 +49,7 @@ class SizesDemo extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    this.root = boardRoot(this);
     this.lay();
 
     document.getElementById('flip')?.addEventListener('click', () => {
@@ -108,20 +110,20 @@ class SizesDemo extends Phaser.Scene {
       for (const width of row) {
         const metrics = cardFaceMetrics(width);
         const card: Card = { ...face, faceUp: this.faceUp };
-        const sprite = new CardSprite(this, card, {
-          width,
-          theme: this.theme,
-          pixelRatio: window.devicePixelRatio || 2,
-        });
+        // No pixelRatio here: the card takes the board's, which is what it
+        // will actually be shown at.
+        const sprite = new CardSprite(this, card, { width, theme: this.theme });
+        this.root.add(sprite);
         // On the row's baseline, so the sizes are read against each other.
         sprite.setPosition(x + width / 2, baseline - metrics.height / 2);
         this.cards.push(sprite);
 
-        this.labels.push(
-          this.add.text(x + width / 2, baseline + 8, String(width), {
-            fontFamily: DISPLAY_FONT, fontSize: '10px', color: '#7fae86',
-          }).setOrigin(0.5, 0),
-        );
+        const label = this.add.text(x + width / 2, baseline + 8, String(width), {
+          fontFamily: DISPLAY_FONT, fontSize: '10px', color: '#7fae86',
+          resolution: window.devicePixelRatio || 2,
+        }).setOrigin(0.5, 0);
+        this.root.add(label);
+        this.labels.push(label);
         x += width + gap;
       }
       top = baseline + 26;
@@ -145,14 +147,11 @@ class SizesDemo extends Phaser.Scene {
   }
 }
 
-const game = new Phaser.Game({
-  type: Phaser.AUTO,
+const game = createBoard({
   parent: 'board',
   width: WIDTH,
   height: HEIGHT,
   backgroundColor: '#13463a',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
-  input: { touch: { capture: true } },
   scene: SizesDemo,
 });
 

@@ -4,4 +4,5 @@
 // the main one stays free of Phaser and testable without a browser. Phaser is
 // an optional peer dependency: a game that only wants the cards, the shuffling
 // and the stack geometry never installs it.
+export * from './board.js';
 export * from './card-sprite.js';

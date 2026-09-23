@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { boardPixelRatio } from './board.js';
 import {
   BASE_CARD_WIDTH,
   Card,
@@ -185,9 +186,11 @@ export interface CardStyle {
   ink?: (suit: string) => number;
   suitArt?: Readonly<Record<string, string>>;
   /**
-   * How many texture pixels to a card unit. Pass devicePixelRatio, or the
-   * factor a scene scales its root container by, to keep text and the card
-   * body sharp; the default of 2 is right for most phones.
+   * How many texture pixels to a card unit.
+   *
+   * Defaults to whatever `createBoard` scaled this game by, which is the
+   * right answer whenever the card is going into a board root - the card is
+   * then rasterised at the density it will actually be shown at.
    */
   pixelRatio?: number;
 }
@@ -209,7 +212,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
     const theme = style.theme ?? DEFAULT_DECK_THEME;
     const backColor = style.backColor ?? DEFAULT_BACK_COLOR;
     const ink = (style.ink ?? defaultInk)(card.suit);
-    const dpr = style.pixelRatio ?? 2;
+    const dpr = style.pixelRatio ?? boardPixelRatio(scene);
     const metrics = cardFaceMetrics(width);
     this.metrics = metrics;
     this.backColor = backColor;

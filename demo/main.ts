@@ -20,7 +20,7 @@ import {
   stackUnder,
   topCardIndex,
 } from 'phaser-card-engine';
-import { CardSprite, preloadCardArt } from 'phaser-card-engine/phaser';
+import { CardSprite, boardRoot, createBoard, preloadCardArt, toBoard } from 'phaser-card-engine/phaser';
 
 // A board made of nothing but stacks.
 //
@@ -63,6 +63,7 @@ class StackDemo extends Phaser.Scene {
   private piles: Pile[] = [];
   private squeezed = true;
   private dragging?: { view: CardSprite; from: Pile; offset: Phaser.Math.Vector2 };
+  private root!: Phaser.GameObjects.Container;
   private readonly marks: Phaser.GameObjects.Graphics[] = [];
   private readonly labels: Phaser.GameObjects.Text[] = [];
   private highlight?: Phaser.GameObjects.Graphics;
@@ -73,7 +74,12 @@ class StackDemo extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    // Everything goes in here. The container is scaled by the device's pixel
+    // ratio, so the canvas is rasterised at screen density while every
+    // coordinate below stays in the 480-unit board's own units.
+    this.root = boardRoot(this);
     this.highlight = this.add.graphics().setDepth(5);
+    this.root.add(this.highlight);
     this.buildStacks();
     this.deal();
 
@@ -171,6 +177,7 @@ class StackDemo extends Phaser.Scene {
       const g = this.add.graphics().setDepth(0);
       g.lineStyle(1.5, 0xcfead0, 0.25);
       g.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 5);
+      this.root.add(g);
       this.marks.push(g);
     }
     this.printLabels();
@@ -184,6 +191,7 @@ class StackDemo extends Phaser.Scene {
       const item = this.add.text(x, y, text, {
         fontFamily: DISPLAY_FONT, fontSize: size, color: colour,
       }).setOrigin(0.5, 0.5).setDepth(0);
+      this.root.add(item);
       this.labels.push(item);
       return item;
     };
@@ -248,6 +256,7 @@ class StackDemo extends Phaser.Scene {
 
   private makeCard(card: Card): CardSprite {
     const view = new CardSprite(this, { ...card, faceUp: true }, { theme: this.theme });
+    this.root.add(view);
     view.setDepth(1);
     view.setInteractive(
       new Phaser.Geom.Rectangle(0, 0, CARD_WIDTH, CARD_HEIGHT),
@@ -297,7 +306,10 @@ class StackDemo extends Phaser.Scene {
   private carry(pointer: Phaser.Input.Pointer): void {
     const drag = this.dragging;
     if (!drag) return;
-    drag.view.setPosition(pointer.worldX, pointer.worldY);
+    // In board units: a pointer arrives in canvas pixels, which are
+    // pixelRatio times the units the cards are placed in.
+    const at = toBoard(this, pointer);
+    drag.view.setPosition(at.x, at.y);
 
     // Which stack is it being offered to? Overlap, not the pointer - see
     // stackUnder, and note the card rectangle rather than the finger.
@@ -344,18 +356,11 @@ class StackDemo extends Phaser.Scene {
   }
 }
 
-const game = new Phaser.Game({
-  type: Phaser.AUTO,
+const game = createBoard({
   parent: 'board',
   width: WIDTH,
   height: HEIGHT,
   backgroundColor: '#13463a',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
-  // Let Phaser preventDefault the touches it handles. Without this a drag on
-  // a phone is also a page scroll, and the card stays where it was while the
-  // whole demo slides up the screen - which is the first thing anybody
-  // testing this on a phone would hit.
-  input: { touch: { capture: true } },
   scene: StackDemo,
 });
 
