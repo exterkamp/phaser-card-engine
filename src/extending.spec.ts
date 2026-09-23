@@ -1,5 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Card, CardFace, Rank, Suit, buildDeck, cloneCards, topOf } from './cards.js';
+import {
+  Card, CardFace, Rank, Suit, SuitOf, buildDeck, cloneCards, defineSuits, topOf,
+} from './cards.js';
 
 // The two card models this package was extracted from, written out here as
 // the games actually declare them. These are the test: if the base type stops
@@ -9,7 +11,13 @@ import { Card, CardFace, Rank, Suit, buildDeck, cloneCards, topOf } from './card
 // and what the shop did to it. Its deck can hold two of the same card, so ids
 // are minted rather than derived.
 type CardMark = 'gilded' | 'warded' | 'snake';
-interface NertzCard extends Card {
+
+// And its deck can hold a suit that no standard deck has. The game declares
+// it; this package never hears the word.
+const NERTZ_SUITS = defineSuits({ star: { red: false } });
+type NertzSuit = SuitOf<typeof NERTZ_SUITS>;
+
+interface NertzCard extends Card<NertzSuit> {
   seat: number;
   entry: number;
   marks?: CardMark[];
@@ -34,6 +42,29 @@ describe('the base card', () => {
   it('is what one of the two games already had, field for field', () => {
     const card: SolitaireCard = { id: 'hearts-9', suit: 'hearts', rank: '9', faceUp: true };
     expectTypeOf(card).toExtend<Card>();
+  });
+});
+
+describe('a suit the package does not know', () => {
+  it('is a suit the game can hold on a card', () => {
+    const star: NertzCard = {
+      id: 's1-star-A-0', suit: 'star', rank: 'A', faceUp: true, seat: 1, entry: 0,
+    };
+    expect(NERTZ_SUITS.isStandard(star.suit)).toBe(false);
+    expect(NERTZ_SUITS.isRed(star.suit)).toBe(false);
+    expectTypeOf(star.suit).toEqualTypeOf<NertzSuit>();
+  });
+
+  it('is not something a plain card can hold', () => {
+    // A card with no suit argument is a card of the four standard suits, so
+    // this is the error that keeps a solitaire free of another game's ideas.
+    // @ts-expect-error 'star' is not one of the four
+    const wrong: Card = { id: 'x', suit: 'star', rank: 'A', faceUp: false };
+    expect(wrong.suit).toBe('star');
+  });
+
+  it('names its own union rather than importing one', () => {
+    expectTypeOf<NertzSuit>().toEqualTypeOf<Suit | 'star'>();
   });
 });
 

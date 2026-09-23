@@ -4,10 +4,12 @@ import {
   CARD_HEIGHT,
   CARD_WIDTH,
   RANKS,
+  STANDARD_SUITS,
   SUITS,
   cardName,
+  defineSuits,
   isRed,
-  isSpecialSuit,
+  isStandardSuit,
   rankValue,
   sameColour,
   sameFace,
@@ -46,13 +48,46 @@ describe('suits and colours', () => {
     expect(sameColour('hearts', 'spades')).toBe(false);
   });
 
-  // The star is kept out of SUITS on purpose: that array builds the deck, and
-  // a fifth entry would deal thirteen star cards nobody asked for.
-  it('keeps special suits out of the deck', () => {
-    expect(SUITS).not.toContain('star');
-    expect(isSpecialSuit('star')).toBe(true);
-    expect(isSpecialSuit('hearts')).toBe(false);
-    expect(standardDeck().some((c) => isSpecialSuit(c.suit))).toBe(false);
+  it('knows which suits a deck is built from', () => {
+    expect(SUITS.every(isStandardSuit)).toBe(true);
+    expect(isStandardSuit('star')).toBe(false);
+  });
+
+  // A suit this package has never heard of is not red, which is the right
+  // answer for a rule about red and black to give about a gold star.
+  it('calls an unknown suit black rather than refusing to answer', () => {
+    expect(isRed('star')).toBe(false);
+    expect(sameColour('star', 'spades')).toBe(true);
+    expect(sameColour('star', 'hearts')).toBe(false);
+  });
+});
+
+describe('a game adding suits of its own', () => {
+  it('gets them in the vocabulary without this package knowing them', () => {
+    const vocab = defineSuits({ star: { red: false }, rose: { red: true } });
+    expect(vocab.all).toEqual([...SUITS, 'star', 'rose']);
+    expect(vocab.isStandard('star')).toBe(false);
+    expect(vocab.isStandard('hearts')).toBe(true);
+  });
+
+  it('decides for itself what colour they are', () => {
+    const vocab = defineSuits({ star: { red: false }, rose: { red: true } });
+    expect(vocab.isRed('star')).toBe(false);
+    expect(vocab.isRed('rose')).toBe(true);
+    expect(vocab.sameColour('rose', 'hearts')).toBe(true);
+    expect(vocab.sameColour('star', 'clubs')).toBe(true);
+  });
+
+  it('leaves the four standard suits exactly as they were', () => {
+    const vocab = defineSuits({ rose: { red: true } });
+    expect(SUITS.map((s) => vocab.isRed(s))).toEqual(SUITS.map(isRed));
+    // And the shared set is not mutated by anybody defining anything.
+    expect(isRed('rose')).toBe(false);
+  });
+
+  it('is the four and nothing else when a game adds none', () => {
+    expect(STANDARD_SUITS.all).toEqual([...SUITS]);
+    expect(defineSuits().all).toEqual([...SUITS]);
   });
 });
 

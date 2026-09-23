@@ -35,8 +35,9 @@ near-identical blobs at card size; these are shaped to be told apart at a
 glance instead.
 
 `star.svg` is the odd one out: it is not a playing-card suit at all, and is
-here because one of the two games uses it for cards its shop has modified. See
-`SPECIAL_SUITS` in `src/cards.ts`, which deliberately keeps it out of the deck.
+here because one of the two games uses it for cards its shop has modified. The
+code knows nothing about it - a game that wants a fifth suit declares it with
+`defineSuits` and points at this file itself.
 
 ## The fonts
 

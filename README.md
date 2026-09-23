@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.1.3
+npm install github:exterkamp/phaser-card-engine#v0.2.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -30,7 +30,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 
 | | |
 | --- | --- |
-| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `SUITS`, `RANKS`, `Suit`, `Rank`, `CardSuit`, `rankValue`, `isRed`, `sameColour`, `cardName`, and the 5:7 card proportion |
+| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `SUITS`, `RANKS`, `Suit`, `Rank`, `rankValue`, `isRed`, `sameColour`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
@@ -42,34 +42,56 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 `Card` is a base to extend, not a shape everything has to fit:
 
 ```ts
-interface Card extends CardFace {
+interface Card<S extends string = Suit> extends CardFace<S> {
   id: string;
   faceUp: boolean;
 }
 ```
 
 Those four fields are not a guess at a common denominator — they are exactly
-what the two games already had, field for field. Solitaire's card *is* this,
-narrowed to the four natural suits because a plain deck has no others. Nertz's
-is this plus what it needs:
+what the two games already had, field for field. Solitaire's card *is* this.
+Nertz's is this plus what it needs, over a suit set of its own:
 
 ```ts
-interface SolitaireCard extends Card {
-  suit: Suit;               // no star cards in a plain deck
-}
+interface SolitaireCard extends Card {}                 // the four suits
 
-interface NertzCard extends Card {
+const NERTZ_SUITS = defineSuits({ star: { red: false } });
+type NertzSuit = SuitOf<typeof NERTZ_SUITS>;            // Suit | 'star'
+
+interface NertzCard extends Card<NertzSuit> {
   seat: number;             // whose deck it came from
   entry: number;            // which line of that deck list
   marks?: CardMark[];       // what the shop did to it
 }
 ```
 
-`buildDeck()` gives you fifty-two of the base, face down, with `spades-K` for
-an id — which is only safe because a standard deck holds one of each, and is
-worth it for what it does to a failing test. Hand it a maker and you get your
-own type back, which is how a game whose deck can hold two of the same card
-mints ids it can tell apart:
+### Suits a game invents are the game's
+
+There is no list of non-standard suits in this package. An earlier version had
+one — a `SPECIAL_SUITS` array with `star` in it — which made every consumer
+carry a suit only one of them has ever heard of, and made that consumer ask
+permission to add its own. Now the four standard suits are here and anything
+else is declared where it is used:
+
+```ts
+const SUITS_IN_PLAY = defineSuits({ star: { red: false }, rose: { red: true } });
+
+SUITS_IN_PLAY.isRed('rose');        // true — the game decides
+SUITS_IN_PLAY.isStandard('star');   // false — this is what "special" meant
+SUITS_IN_PLAY.all;                  // the four, then yours
+```
+
+`defineSuits` returns a value your game exports rather than mutating a
+registry, deliberately: a registry has to be written to before anything reads
+it, which is an ordering problem in the app and a shared-state problem in its
+tests.
+
+The free `isRed` and `sameColour` take any string and answer for the four, so
+a suit this package has never heard of is not red — which is the right answer
+for a rule about red and black to give about a gold star, and is what nertz
+already relies on today.
+
+### The helpers keep your type
 
 ```ts
 const deck = buildDeck<NertzCard>((face, index) => ({
@@ -81,10 +103,14 @@ topOf(deck);                           // NertzCard | undefined, not Card
 cloneCards(deck);                      // NertzCard[]
 ```
 
-The helpers are generic, so they hand back the card you put in. `src/extending.spec.ts`
-declares both games' real models and asserts this at the type level, and `npm test`
-typechecks the specs before running them — so a change that stops fitting either
-game fails the test run rather than the next migration.
+`buildDeck()` with no argument gives fifty-two of the base, face down, with
+`spades-K` for an id — safe because a standard deck holds one of each, and
+worth it for what it does to a failing test.
+
+`src/extending.spec.ts` declares both games' real models and asserts all of
+this at the type level, including that a plain `Card` *rejects* `star`. `npm
+test` typechecks the specs before running them, so a change that stops fitting
+either game fails the test run rather than the next migration.
 
 An interface rather than a class, because both games hold cards in pure state
 copied with a spread on every move; a class would survive `{ ...card }` as a
@@ -128,8 +154,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.1.3` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.1.3.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.2.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.2.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

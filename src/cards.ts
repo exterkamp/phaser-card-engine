@@ -8,28 +8,17 @@
 //
 // A card here is a base to extend rather than a shape to conform to. The two
 // games' cards turned out to agree exactly on four fields and differ only by
-// what one of them adds - see Card below.
+// what one of them adds - see Card below - and the same goes for suits: the
+// four are here, and a game that has invented others declares them where it
+// uses them. See defineSuits.
 
 /** The four natural suits, in the order foundations are usually laid out. */
 export const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
 export type Suit = (typeof SUITS)[number];
 
-/**
- * Suits that exist only because something modified the deck.
- *
- * Kept out of SUITS on purpose: that array is what builds a deck and drives
- * the foundation columns, and a fifth entry there would deal thirteen star
- * cards and add a column nobody asked for. A game with no modifiers never
- * mentions these and is unaffected by their existing.
- */
-export const SPECIAL_SUITS = ['star'] as const;
-export type SpecialSuit = (typeof SPECIAL_SUITS)[number];
-
-/** What a card can carry once modifiers have had a go at it. */
-export type CardSuit = Suit | SpecialSuit;
-
-export function isSpecialSuit(suit: CardSuit): suit is SpecialSuit {
-  return (SPECIAL_SUITS as readonly string[]).includes(suit);
+/** Whether a suit is one of the four a standard deck is built from. */
+export function isStandardSuit(suit: string): suit is Suit {
+  return (SUITS as readonly string[]).includes(suit);
 }
 
 export const RANKS = [
@@ -37,9 +26,19 @@ export const RANKS = [
 ] as const;
 export type Rank = (typeof RANKS)[number];
 
-export const RED_SUITS: ReadonlySet<CardSuit> = new Set<CardSuit>(['hearts', 'diamonds']);
+export const RED_SUITS: ReadonlySet<string> = new Set(['hearts', 'diamonds']);
 
-export function isRed(suit: CardSuit): boolean {
+/**
+ * Whether a suit is a red one.
+ *
+ * Takes any string rather than only the four, because a game that has added
+ * suits of its own still asks this of every card it holds - and a suit this
+ * package has never heard of answers no, which is the right default: it is
+ * the answer a rule about red and black should give about a gold star.
+ *
+ * A game that adds a *red* suit of its own wants defineSuits below.
+ */
+export function isRed(suit: string): boolean {
   return RED_SUITS.has(suit);
 }
 
@@ -49,9 +48,69 @@ export function isRed(suit: CardSuit): boolean {
  * Most tableaus alternate colour rather than suit, so this - not the suit -
  * is what a placement rule actually asks about.
  */
-export function sameColour(a: CardSuit, b: CardSuit): boolean {
+export function sameColour(a: string, b: string): boolean {
   return isRed(a) === isRed(b);
 }
+
+/**
+ * A suit vocabulary: the four standard ones plus whatever a game has added.
+ *
+ * Suits a game invents are the game's, not this package's. An earlier version
+ * of this file hard-coded `star` into a SPECIAL_SUITS array because one of the
+ * two consumers has one, which made every other consumer carry a suit it has
+ * never heard of, and made that consumer's suit something it had to ask
+ * permission to add.
+ *
+ * So the extra suits are declared where they are used, and what comes back is
+ * a small object that knows about them:
+ *
+ * ```ts
+ * // in the game, not here
+ * export const SUITS_IN_PLAY = defineSuits({ star: { red: false } });
+ * export type CardSuit = SuitOf<typeof SUITS_IN_PLAY>;   // Suit | 'star'
+ *
+ * SUITS_IN_PLAY.isRed('star');        // false
+ * SUITS_IN_PLAY.isStandard('star');   // false - this is what "special" meant
+ * ```
+ *
+ * A value rather than a registry with a register() on it, and that is
+ * deliberate: a module-level registry has to be written to before anything
+ * reads it, which is an ordering problem in the app and a shared-state problem
+ * in its tests. This is just a constant a game exports.
+ */
+export interface SuitVocabulary<S extends string> {
+  /** Every suit in play, the four standard ones first. */
+  readonly all: readonly S[];
+  isRed(suit: S): boolean;
+  sameColour(a: S, b: S): boolean;
+  /** Whether this is one of the four a deck is built from. */
+  isStandard(suit: S): suit is S & Suit;
+}
+
+/** The suit type a vocabulary describes, for naming it in the game. */
+export type SuitOf<V> = V extends SuitVocabulary<infer S> ? S : never;
+
+export function defineSuits<E extends string = never>(
+  extra: Record<E, { red?: boolean }> = {} as Record<E, { red?: boolean }>,
+): SuitVocabulary<Suit | E> {
+  const added = Object.entries(extra) as [E, { red?: boolean }][];
+  const red = new Set<string>([
+    ...RED_SUITS,
+    ...added.filter(([, how]) => how.red).map(([suit]) => suit),
+  ]);
+  const all = [...SUITS, ...added.map(([suit]) => suit)] as (Suit | E)[];
+
+  const isRedHere = (suit: Suit | E) => red.has(suit);
+  return {
+    all,
+    isRed: isRedHere,
+    sameColour: (a, b) => isRedHere(a) === isRedHere(b),
+    isStandard: (suit): suit is (Suit | E) & Suit => isStandardSuit(suit),
+  };
+}
+
+/** The four and nothing else, for a game that never adds any. */
+export const STANDARD_SUITS: SuitVocabulary<Suit> = defineSuits();
 
 /**
  * Ace is 1 and king is 13.
@@ -72,8 +131,8 @@ export function rankValue(rank: Rank): number {
  * refers to cards across rounds this way, because ids are minted fresh on
  * every deal and say nothing about the card they were on last time.
  */
-export interface CardFace {
-  suit: CardSuit;
+export interface CardFace<S extends string = Suit> {
+  suit: S;
   rank: Rank;
 }
 
@@ -106,16 +165,16 @@ export interface CardFace {
  * of bug that shows up three refactors later. A class of your own may of
  * course `implements Card`.
  */
-export interface Card extends CardFace {
+export interface Card<S extends string = Suit> extends CardFace<S> {
   id: string;
   faceUp: boolean;
 }
 
-export function sameFace(a: CardFace, b: CardFace): boolean {
+export function sameFace(a: CardFace<string>, b: CardFace<string>): boolean {
   return a.rank === b.rank && a.suit === b.suit;
 }
 
-export function cardName(face: CardFace): string {
+export function cardName(face: CardFace<string>): string {
   return `${face.rank} of ${face.suit}`;
 }
 
@@ -145,8 +204,10 @@ export function standardDeck(): CardFace[] {
  * ```
  */
 export function buildDeck(): Card[];
-export function buildDeck<T extends Card>(make: (face: CardFace, index: number) => T): T[];
-export function buildDeck<T extends Card>(
+export function buildDeck<T extends Card<string>>(
+  make: (face: CardFace, index: number) => T,
+): T[];
+export function buildDeck<T extends Card<string>>(
   make?: (face: CardFace, index: number) => T,
 ): T[] | Card[] {
   const faces = standardDeck();
@@ -180,7 +241,7 @@ export function topOf<T>(pile: readonly T[]): T | undefined {
  * marks) gets that array shared, which is why marks are replaced rather than
  * pushed to.
  */
-export function cloneCards<T extends Card>(pile: readonly T[]): T[] {
+export function cloneCards<T extends Card<string>>(pile: readonly T[]): T[] {
   return pile.map((card) => ({ ...card }));
 }
 
