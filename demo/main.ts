@@ -3,6 +3,7 @@ import {
   CARD_HEIGHT,
   CARD_WIDTH,
   Card,
+  DISPLAY_FONT,
   DEFAULT_DECK_THEME,
   Stack,
   buildDeck,
@@ -24,22 +25,27 @@ import { CardView, preload } from './cards.js';
 // What the demo is showing is the placement primitive - where a stack is,
 // where its nth card sits, and which stack a dragged card is being offered to.
 const WIDTH = 480;
-// Tall enough for the longest column at full fan (210 + 312 + a card) and no
-// taller. The board is fitted by width on a phone, so every unit of height
-// beyond what the cards use is green nobody plays on.
+// Tall enough for everything below at its full fan, and no taller: the board
+// is fitted by width on a phone, so every unit of height beyond what the cards
+// use is green nobody plays on.
 const HEIGHT = 640;
 const MARGIN = 12;
 const COLUMNS = 6;
 const PITCH = (WIDTH - 2 * MARGIN) / COLUMNS;
 const centre = (column: number) => MARGIN + PITCH / 2 + column * PITCH;
 
-// The room a column has before it must squeeze. Unlimited on one setting and
-// a hard cap on the other, which is what the Toggle squeeze button switches
-// between - and the columns are dealt deep enough that the difference is the
-// whole point rather than a detail.
-const COLUMN_TOP = 210;
+// The room a fan has before it must squeeze. Unlimited on one setting and a
+// hard cap on the other, which is what the Toggle squeeze button switches
+// between - and everything here is dealt deep enough that the difference is
+// the whole point rather than a detail.
 const ROOMY = 0;
 const TIGHT = 190;
+
+// Where each band of the specimen sheet sits.
+const TOP_ROW = 60;         // squared: foundations and a deck
+const SIDEWAYS = 165;       // one fan running right, one running left
+const COLUMN_TOP = 250;     // four fanning down
+const UP_FOOT = 560;        // and one fanning up from its bottom card
 
 interface Pile {
   stack: Stack;
@@ -52,6 +58,7 @@ class StackDemo extends Phaser.Scene {
   private squeezed = true;
   private dragging?: { view: CardView; from: Pile; offset: Phaser.Math.Vector2 };
   private readonly marks: Phaser.GameObjects.Graphics[] = [];
+  private readonly labels: Phaser.GameObjects.Text[] = [];
   private highlight?: Phaser.GameObjects.Graphics;
 
   preload(): void {
@@ -89,35 +96,62 @@ class StackDemo extends Phaser.Scene {
       ? Math.round((deepest.cards[1].y - deepest.cards[0].y) * 10) / 10
       : 0;
     note.textContent = this.squeezed
-      ? `maxSpread ${TIGHT}: the ${deepest.cards.length}-card column fans at ${gap} units a card instead of 26.`
-      : 'maxSpread 0: every column fans at its full 26 units a card, whatever it costs.';
+      ? `maxSpread ${TIGHT}: the ${deepest.cards.length}-card column fans at ${gap} units a card instead of 26. `
+        + 'Every direction squeezes the same way.'
+      : 'maxSpread 0: every pile fans at its full step, whatever it costs.';
   }
 
   // --- the stacks ----------------------------------------------------------
 
   private buildStacks(): void {
-    const kept = this.piles.map((pile) => pile.cards);
+    const kept = new Map(this.piles.map((pile) => [pile.stack.id, pile.cards]));
     const spread = this.squeezed ? TIGHT : ROOMY;
 
+    // One of everything the primitive can do, laid out as a specimen sheet.
+    // A real game picks the two or three it needs; this shows all five.
     const stacks: Stack[] = [
-      // Four squared foundations: no fan, so every card lands on the last.
+      // Squared: no fan, so every card lands exactly on the last. A
+      // foundation, a stock, a waste and a free cell are all this.
       ...[0, 1, 2, 3].map((i) =>
-        defineStack({ id: `foundation-${i}`, x: centre(i), y: 70 })),
-      // A deck, also squared, over at the end of the row.
-      defineStack({ id: 'deck', x: centre(5), y: 70 }),
-      // And the columns, fanning down with a cap on how far they may run.
-      ...Array.from({ length: COLUMNS }, (_, i) =>
+        defineStack({ id: `foundation-${i}`, x: centre(i), y: TOP_ROW })),
+      defineStack({ id: 'deck', x: centre(5), y: TOP_ROW }),
+
+      // Sideways, in both directions. A fan running right grows away from its
+      // anchor; one running left grows back towards the other edge, which is
+      // how you put a pile in the top-right corner and have it stay there.
+      defineStack({
+        id: 'fan-right', x: MARGIN + CARD_WIDTH / 2, y: SIDEWAYS,
+        fan: 'right', step: 22, maxSpread: spread ? 150 : 0,
+      }),
+      defineStack({
+        id: 'fan-left', x: WIDTH - MARGIN - CARD_WIDTH / 2, y: SIDEWAYS,
+        fan: 'left', step: 22, maxSpread: spread ? 150 : 0,
+      }),
+
+      // Down, which is what a tableau column is.
+      ...Array.from({ length: 4 }, (_, i) =>
         defineStack({
-          id: `column-${i}`,
-          x: centre(i),
-          y: COLUMN_TOP + CARD_HEIGHT / 2,
-          fan: 'down',
-          step: 26,
-          maxSpread: spread,
+          id: `column-${i}`, x: centre(i), y: COLUMN_TOP + CARD_HEIGHT / 2,
+          fan: 'down', step: 26, maxSpread: spread,
         })),
+
+      // And up, anchored at its *bottom* card so the pile grows towards the
+      // top of the screen - which is what you want for a pile near a bottom
+      // edge, and for an opponent's hand across the table from you.
+      //
+      // Worth seeing rather than only reading: an upward fan shows the
+      // *bottom* edges of the cards underneath, and a card's index is at its
+      // top-left, so all but the newest card reads as a blank sliver. The
+      // geometry does not care which way it goes; the card does. A game
+      // fanning upward wants its index drawn at both ends, which is the
+      // sprite's business and not this package's yet.
+      defineStack({
+        id: 'fan-up', x: centre(5), y: UP_FOOT,
+        fan: 'up', step: 26, maxSpread: spread,
+      }),
     ];
 
-    this.piles = stacks.map((stack, i) => ({ stack, cards: kept[i] ?? [] }));
+    this.piles = stacks.map((stack) => ({ stack, cards: kept.get(stack.id) ?? [] }));
     this.printFelt();
   }
 
@@ -131,6 +165,25 @@ class StackDemo extends Phaser.Scene {
       g.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 5);
       this.marks.push(g);
     }
+    this.printLabels();
+  }
+
+  /** What each band is, since the whole point is telling them apart. */
+  private printLabels(): void {
+    for (const label of this.labels.splice(0)) label.destroy();
+    const say = (x: number, y: number, text: string, origin = 0) => {
+      const item = this.add.text(x, y, text, {
+        fontFamily: DISPLAY_FONT,
+        fontSize: '11px',
+        color: '#7fae86',
+      }).setOrigin(origin, 0.5).setDepth(0);
+      this.labels.push(item);
+    };
+    say(MARGIN, TOP_ROW - CARD_HEIGHT / 2 - 10, 'SQUARED');
+    say(MARGIN, SIDEWAYS - CARD_HEIGHT / 2 - 10, 'FAN RIGHT');
+    say(WIDTH - MARGIN, SIDEWAYS - CARD_HEIGHT / 2 - 10, 'FAN LEFT', 1);
+    say(MARGIN, COLUMN_TOP - 10, 'FAN DOWN');
+    say(WIDTH - MARGIN, UP_FOOT + CARD_HEIGHT / 2 + 10, 'FAN UP', 1);
   }
 
   // --- dealing -------------------------------------------------------------
@@ -142,18 +195,33 @@ class StackDemo extends Phaser.Scene {
     }
 
     const deck = shuffle(buildDeck(), seeded(Date.now() % 100000));
-    // Deliberately uneven, and the long ones deliberately longer than the cap:
-    // three cards fit either way, thirteen never do, and everything between
-    // is where you can watch the fan tighten.
-    const perColumn = [3, 5, 7, 9, 11, 13];
     let next = 0;
-    this.piles
-      .filter((pile) => pile.stack.id.startsWith('column-'))
-      .forEach((pile, i) => {
-        for (let n = 0; n < perColumn[i]; n++) pile.cards.push(this.makeCard(deck[next++]));
-      });
-    const deckPile = this.pile('deck')!;
-    for (; next < deck.length; next++) deckPile.cards.push(this.makeCard(deck[next]));
+    const give = (id: string, count: number) => {
+      const pile = this.pile(id)!;
+      for (let n = 0; n < count && next < deck.length; n++) {
+        pile.cards.push(this.makeCard(deck[next++]));
+      }
+    };
+
+    // Deliberately uneven, and the long ones deliberately longer than the cap:
+    // three cards fit either way, twelve never do, and everything between is
+    // where you can watch the fan tighten. Every direction gets one pile long
+    // enough to squeeze, and it all has to add up to fifty-two - the first
+    // arrangement of this gave the columns and the sideways fans the whole
+    // deck and left the up-fan and the deck with nothing.
+    // Every one of the four directions gets a pile past its cap, so the
+    // squeeze is visible everywhere rather than only down the columns - the
+    // first arrangement gave the sideways fans six cards each, which fit
+    // comfortably either way and made the note under the board a claim the
+    // board did not support.
+    [2, 4, 6, 10].forEach((count, i) => give(`column-${i}`, count));   // 22
+    give('fan-right', 9);                      // 31
+    give('fan-left', 9);                       // 40
+    give('fan-up', 9);                         // 49
+    give('deck', deck.length - next);          // and the last three squared
+
+    const total = this.piles.reduce((sum, pile) => sum + pile.cards.length, 0);
+    if (total !== 52) throw new Error(`dealt ${total} cards, not 52`);
 
     this.layOutAll();
   }

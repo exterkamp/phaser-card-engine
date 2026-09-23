@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.4.1
+npm install github:exterkamp/phaser-card-engine#v0.4.2
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -190,13 +190,30 @@ demo` prints a **Network** address alongside the local one, and that is the one
 to open on a phone. `npm run demo:serve` does the same for the built demo on
 4391.
 
-A Phaser board made of nothing but stacks: four squared foundations, a deck,
-and six columns dealt three to thirteen cards deep. There are no rules — any
-card may be dropped on any stack — because rules are the game's and this is
-showing the placement. Drag a card and the stack it is being offered to lights
-up where the card would land; **Toggle squeeze** switches `maxSpread` between
-190 and unlimited, and the thirteen-card column goes from fanning at 26 units a
-card to 15.8.
+A Phaser board that is a specimen sheet of the primitive: one of every
+direction a stack can run, labelled on the felt.
+
+| | |
+| --- | --- |
+| **Squared** | four foundations and a deck — every card lands exactly on the last |
+| **Fan right** and **fan left** | the same fan run both ways along the x axis; the leftward one grows back towards its own edge, which is how a pile sits in a corner and stays there |
+| **Fan down** | four tableau columns, two to ten cards deep |
+| **Fan up** | anchored at its *bottom* card, growing towards the top of the screen |
+
+There are no rules — any card may be dropped on any stack — because rules are
+the game's and this is showing the placement. Drag a card and the stack it is
+being offered to lights up where the card would land. **Toggle squeeze**
+switches `maxSpread` between its cap and unlimited, and **every direction
+squeezes the same way**: at their caps the sideways fans draw at 18.8 units a
+card instead of 22, the deep column at 21.1 instead of 26, and the upward fan
+at 23.8 instead of 26.
+
+One thing the demo shows that no amount of prose would: an upward fan displays
+the *bottom* edges of the cards underneath, and a card's index is at its
+top-left — so all but the newest card reads as a blank sliver. The geometry
+does not care which way a stack runs; the card does. A game fanning upward
+wants its index drawn at both ends, which is the sprite's business and not this
+package's yet.
 
 On a touchscreen the canvas captures its own gestures — without that a drag is
 also a page scroll, and the card sits still while the whole demo slides up the
@@ -248,8 +265,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.4.1` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.4.1.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.4.2` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.4.2.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain
