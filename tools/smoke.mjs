@@ -127,6 +127,65 @@ const moved = await evaluate(`(() => {
 })()`);
 check(moved === true, 'a card dropped on another stack joins it');
 
+// And the hold'em table, which is every primitive at once: stacks, throws,
+// draw order and turning cards over.
+console.log('\nand the hold\'em table');
+await send('Page.navigate', { url: `${host.replace(/\/$/, '')}/holdem.html` });
+if (!await until('!!window.__game && Object.values(window.__game.scene.keys)[0].deck?.length')) {
+  console.log('  FAIL the table never appeared');
+  done(1);
+}
+await sleep(1500);
+const table = 'Object.values(window.__game.scene.keys)[0]';
+
+// Deal a hand at speed, recording which pile each card went to.
+await evaluate(`(() => {
+  const s = ${table};
+  window.__order = [];
+  const deliver = s.deliver.bind(s);
+  s.deliver = async (to) => { window.__order.push(to); return deliver(to); };
+  s.speed = 0.2;
+  s.deal();
+  return true;
+})()`);
+if (!await until(`${table}.dealing === false`, 60000)) {
+  console.log('  FAIL the deal never finished');
+  done(1);
+}
+await sleep(300);
+
+const order = JSON.parse(await evaluate('JSON.stringify(window.__order)'));
+// One card at a time, twice round the table - not two cards to each seat.
+check(
+  JSON.stringify(order.slice(0, 8)) ===
+    JSON.stringify(['you', 'west', 'north', 'east', 'you', 'west', 'north', 'east']),
+  'hole cards go one at a time, twice round the table',
+);
+check(
+  JSON.stringify(order.slice(8)) ===
+    JSON.stringify(['burn', 'board', 'board', 'board', 'burn', 'board', 'burn', 'board']),
+  'a card is burned before the flop, the turn and the river',
+);
+
+const hand = JSON.parse(await evaluate(`JSON.stringify({
+  counts: Object.fromEntries([...${table}.piles].map(([k, v]) => [k, v.cards.length])),
+  deck: ${table}.deck.length,
+  square: [...${table}.piles.values()].every(p => p.cards.every(c => c.angle === 0)),
+  faceUp: Object.fromEntries([...${table}.piles].map(([k, v]) => [k, v.cards.every(c => c.card.faceUp)])),
+  unique: (() => {
+    const all = [...[...${table}.piles.values()].flatMap(p => p.cards), ...${table}.deck];
+    return new Set(all.map(c => c.card.id)).size;
+  })(),
+})`));
+check(JSON.stringify(hand.counts) === JSON.stringify({
+  you: 2, west: 2, north: 2, east: 2, board: 5, burn: 3,
+}), 'every pile ends with the right number of cards');
+check(hand.deck === 36, `thirty-six left in the deck (${hand.deck})`);
+check(hand.unique === 52, `no card dealt twice (${hand.unique} distinct)`);
+check(hand.square === true, 'every card comes to rest square, after spinning');
+check(hand.faceUp.you && hand.faceUp.board && !hand.faceUp.west && !hand.faceUp.burn,
+  'your cards and the board face up, everyone else-s face down');
+
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
 done(failures ? 1 : 0);

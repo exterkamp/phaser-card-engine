@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.8.0
+npm install github:exterkamp/phaser-card-engine#v0.9.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -223,6 +223,8 @@ Three pages:
 - **card sizes** at `/sizes.html` — the same card at seven widths from 24 to 168
 - **throwing** at `/throws.html` — tap the felt to throw a card at that spot,
   or tap a pile to throw one onto it
+- **hold'em** at `/holdem.html` — four seats dealt automatically, the way a
+  dealer deals it
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -383,6 +385,41 @@ The whole file is Phaser-free at runtime — it only ever adds a tween through
 the scene you hand it — so it is tested against a stub scene rather than a
 browser.
 
+## A worked example
+
+`demo/holdem.ts` is the smallest thing that looks like a real game: four seats,
+a board, a burn pile and a deck, dealt automatically. There are no rules in it
+— nothing is ranked, nobody bets — because what it is showing is that the
+dealing falls out of the two primitives. Every place a card can end up is a
+`Stack`; every card gets there by being thrown at one.
+
+The seats' hole cards are a fan running right with a step narrower than a card,
+so the two overlap. The board is a fan running right with a step *wider* than a
+card, so the five sit in a row without touching. The burn pile and the deck are
+squared. That is the whole table.
+
+And the deal is a function that reads like the back of a rulebook:
+
+```ts
+for (let round = 0; round < 2; round++) {
+  for (const seat of SEATS) await this.deliver(seat.id);
+}
+await this.deliver('burn');
+for (let i = 0; i < 3; i++) await this.deliver('board');   // the flop
+await this.deliver('burn'); await this.deliver('board');   // the turn
+await this.deliver('burn'); await this.deliver('board');   // the river
+```
+
+`deliver` takes the top card off the deck, throws it at that pile, turns it
+over on arrival if the pile is a face-up one, and hands it to the pile. It
+knows nothing about hold'em. Note the outer loop: **one card at a time, twice
+round the table** — not two cards to each seat in turn, which is the thing
+everybody gets wrong and which looks wrong even when you cannot say why.
+
+`npm run smoke` checks that order, along with the counts, that no card is dealt
+twice, that every card comes to rest square after spinning, and that the right
+piles are face up.
+
 ## What is deliberately not in it
 
 **The rest of the table.** The felt, the rail, the printed lettering, the
@@ -416,8 +453,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.8.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.8.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.9.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.9.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

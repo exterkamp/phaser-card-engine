@@ -41,6 +41,7 @@ export default defineConfig({
         stacks: resolve(__dirname, 'demo/index.html'),
         sizes: resolve(__dirname, 'demo/sizes.html'),
         throws: resolve(__dirname, 'demo/throws.html'),
+        holdem: resolve(__dirname, 'demo/holdem.html'),
       },
     },
   },
