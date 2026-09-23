@@ -5,4 +5,5 @@
 // an optional peer dependency: a game that only wants the cards, the shuffling
 // and the stack geometry never installs it.
 export * from './board.js';
+export * from './flight.js';
 export * from './card-sprite.js';

@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.7.1
+npm install github:exterkamp/phaser-card-engine#v0.8.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -31,7 +31,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | | |
 | --- | --- |
 | `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
-| `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite` and `preloadCardArt`, behind `phaser-card-engine/phaser` |
+| `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite`, `preloadCardArt`, `throwCard` and `dealCards`, behind `phaser-card-engine/phaser` |
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
@@ -217,9 +217,12 @@ npm install
 npm run demo        # http://localhost:4390, and the LAN address it prints
 ```
 
-Two pages: **stacks** at `/`, and **card sizes** at `/sizes.html` — the same
-card at seven widths from 24 to 168, with buttons to turn them over, walk
-through the seven decks, and swap a court for a number card.
+Three pages:
+
+- **stacks** at `/` — one of every fan direction, in both draw orders
+- **card sizes** at `/sizes.html` — the same card at seven widths from 24 to 168
+- **throwing** at `/throws.html` — tap the felt to throw a card at that spot,
+  or tap a pile to throw one onto it
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -344,6 +347,42 @@ own text and textures unless you override it.
 `phaser-card-engine/phaser`, so a game that only wants the cards, the shuffling
 and the stack geometry never installs it.
 
+## Throwing cards
+
+```ts
+throwCard(this, sprite, { x: 240, y: 300 });                    // at a spot
+throwCard(this, sprite, { stack: pile, count: pile.length });   // onto a pile
+dealCards(this, five, { stack: pile, count: 0 }, { stagger: 110 });
+```
+
+A card pitched across a table spins — one turn, in whichever direction the
+wrist gave it — and arrives flat. Both targets work: a bare point lands on
+itself, and a stack lands where that stack's **next** card goes, so throwing at
+a pile of six puts the card on top of the six rather than under them. Each
+resolves when the card lands.
+
+**It lands on an exact angle, and that is the point of the whole design.** A
+card thrown at a pile is usually replaced the instant it arrives by the pile's
+own redraw; if the throw finished at 7° while the pile draws at 0°, the card
+visibly snaps as one sprite takes over from the other. So the spin is computed
+backwards from the angle it has to rest at, and the variety comes from the
+*direction* being random rather than the angle being fuzzed.
+
+A first version did fuzz it, by ±20°, and every card landed off square and got
+snapped straight by its own `onComplete`. The arithmetic test caught it;
+watching it would not have, at seven degrees. If you want a pile to look thrown
+rather than filed, pass a different `settleAngle` per card — that is a decision
+about how a pile looks, and it belongs to the game.
+
+Duration comes from distance unless you give one: a card flicked to the next
+column and a card thrown the length of the board are not the same gesture, and
+one duration for both makes the short one look slow and the long one
+teleported.
+
+The whole file is Phaser-free at runtime — it only ever adds a tween through
+the scene you hand it — so it is tested against a stub scene rather than a
+browser.
+
 ## What is deliberately not in it
 
 **The rest of the table.** The felt, the rail, the printed lettering, the
@@ -377,8 +416,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.7.1` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.7.1.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.8.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.8.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

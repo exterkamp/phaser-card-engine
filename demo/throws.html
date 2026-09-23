@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>phaser-card-engine — card sizes</title>
+    <title>phaser-card-engine — throwing cards</title>
     <style>
       @font-face { font-family: 'Cinzel'; src: url('/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; font-display: block; }
       @font-face { font-family: 'Jost'; src: url('/fonts/jost-latin.woff2') format('woff2'); font-weight: 300 700; font-display: block; }
@@ -12,9 +12,9 @@
       body { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.8rem; box-sizing: border-box; }
       h1 { font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem; letter-spacing: 0.06em; margin: 0; color: #fdfdfd; text-transform: uppercase; }
       p { margin: 0; font-size: 0.8rem; text-align: center; max-width: 32rem; color: #9fc4a4; }
-      a { color: #ffd166; }
+      a { color: #ffd166; font-size: 0.8rem; }
       #board { width: min(480px, 100%); flex: 1; touch-action: none; }
-      .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+      .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: center; }
       button {
         font-family: 'Cinzel', Georgia, serif; font-size: 0.75rem; letter-spacing: 0.05em;
         text-transform: uppercase; color: #fdfdfd; background: #17594a;
@@ -23,22 +23,21 @@
     </style>
   </head>
   <body>
-    <h1>Card sizes</h1>
+    <h1>Throwing cards</h1>
     <p>
-      The same <code>CardSprite</code> at seven widths, drawn at each size rather
-      than drawn once and scaled — so the index is rasterised for the size it is
-      shown at. Every measurement is a ratio of the width; see
-      <code>cardFaceMetrics</code>.
+      <strong>Tap anywhere on the felt</strong> to throw a card at that spot, or
+      tap a pile to throw one onto it. A throw spins one whole turn and lands on
+      an exact angle, so the pile can redraw the card without it snapping.
     </p>
     <div id="board"></div>
     <p id="note"></p>
     <div class="row">
-      <button id="flip">Turn them over</button>
-      <button id="theme">Next deck</button>
-      <button id="ranks">Court / number</button>
-      <a href="/">← stacks demo</a>
-      <a href="/throws.html">throwing →</a>
+      <button id="deal">Deal a hand</button>
+      <button id="spins">Spins: 1</button>
+      <button id="gather">Gather up</button>
+      <a href="/">stacks →</a>
+      <a href="/sizes.html">sizes →</a>
     </div>
-    <script type="module" src="./sizes.ts"></script>
+    <script type="module" src="./throws.ts"></script>
   </body>
 </html>
