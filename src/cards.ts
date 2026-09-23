@@ -6,13 +6,9 @@
 // belongs in here - not "could this be shared" but "was it already written
 // twice the same way".
 //
-// What is deliberately *not* here is a Card type. Nertz cards carry a seat, a
-// deck-list entry and a set of marks, and mint their ids from a counter
-// because one deck can hold two of the same card; solitaire cards carry a
-// face-up flag and take their id from the suit and rank because a deck holds
-// exactly one of each. Neither model is wrong and neither fits the other, so
-// this offers the face - the part they do agree on - and lets each game build
-// its own card around it.
+// A card here is a base to extend rather than a shape to conform to. The two
+// games' cards turned out to agree exactly on four fields and differ only by
+// what one of them adds - see Card below.
 
 /** The four natural suits, in the order foundations are usually laid out. */
 export const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
@@ -68,10 +64,51 @@ export function rankValue(rank: Rank): number {
   return RANKS.indexOf(rank) + 1;
 }
 
-/** Enough to name a card without holding one. */
+/**
+ * Enough to name a card without holding one.
+ *
+ * A face is not a card: it is the rank and suit, which is all anything
+ * comparing two cards by their identity in the deck actually needs. Nertz
+ * refers to cards across rounds this way, because ids are minted fresh on
+ * every deal and say nothing about the card they were on last time.
+ */
 export interface CardFace {
   suit: CardSuit;
   rank: Rank;
+}
+
+/**
+ * A card on a table: a face, something to call it, and which way up it is.
+ *
+ * The base every game extends rather than a shape they all have to fit. These
+ * four fields are not a guess at a common denominator - they are exactly what
+ * the two games already had in common, field for field. Solitaire's card *is*
+ * this and nothing else; nertz's is this plus a seat, a deck-list entry and a
+ * set of marks:
+ *
+ * ```ts
+ * interface NertzCard extends Card {
+ *   seat: number;          // whose deck it came from
+ *   entry: number;         // which line of that deck list
+ *   marks?: CardMark[];    // what the shop did to it
+ * }
+ * ```
+ *
+ * `id` is in the base because both games need one and for the same reason: a
+ * renderer keys its sprites off it, so two cards sharing an id is one card
+ * drawn in two places. What the id is made *of* is the game's business -
+ * `suit-rank` where a deck holds one of each, a counter where it can hold
+ * two - which is why buildDeck lets you mint your own.
+ *
+ * An interface rather than a class, because both games hold cards in pure
+ * state that is copied with a spread on every move. A class would survive
+ * `{ ...card }` as a plain object with the methods missing, which is the kind
+ * of bug that shows up three refactors later. A class of your own may of
+ * course `implements Card`.
+ */
+export interface Card extends CardFace {
+  id: string;
+  faceUp: boolean;
 }
 
 export function sameFace(a: CardFace, b: CardFace): boolean {
@@ -82,17 +119,69 @@ export function cardName(face: CardFace): string {
   return `${face.rank} of ${face.suit}`;
 }
 
-/**
- * The fifty-two faces of a standard deck, suit by suit.
- *
- * Faces rather than cards, for the reason given at the top of this file: an
- * id, a face-up flag and an owner are all decisions the game makes. A
- * solitaire builds its deck as `standardDeck().map(face => ({ ...face, id:
- * `${face.suit}-${face.rank}`, faceUp: false }))` and a game with duplicate
- * cards mints ids some other way.
- */
+/** The fifty-two faces of a standard deck, suit by suit. */
 export function standardDeck(): CardFace[] {
   return SUITS.flatMap((suit) => RANKS.map((rank) => ({ suit, rank })));
+}
+
+/**
+ * A fresh fifty-two card deck, in order, all face down.
+ *
+ * With no argument the id is the suit and rank - `spades-K` - which is only
+ * safe because a standard deck holds exactly one of each, and is worth it for
+ * what it does to a failing test: `spades-K` says which card went wrong and
+ * `card-37` does not.
+ *
+ * With one, the deck is whatever you make of each face, which is how a game
+ * whose deck can hold two of the same card mints ids it can tell apart, and
+ * how it adds its own fields on the way past:
+ *
+ * ```ts
+ * let n = 0;
+ * const deck = buildDeck((face, index) => ({
+ *   ...face, id: `s${seat}-${face.suit}-${face.rank}-${n++}`,
+ *   faceUp: false, seat, entry: index,
+ * }));   // NertzCard[]
+ * ```
+ */
+export function buildDeck(): Card[];
+export function buildDeck<T extends Card>(make: (face: CardFace, index: number) => T): T[];
+export function buildDeck<T extends Card>(
+  make?: (face: CardFace, index: number) => T,
+): T[] | Card[] {
+  const faces = standardDeck();
+  if (!make) {
+    return faces.map((face) => ({ ...face, id: `${face.suit}-${face.rank}`, faceUp: false }));
+  }
+  return faces.map(make);
+}
+
+/**
+ * The card on top of a pile, or nothing if there is no pile left.
+ *
+ * Every pile in both games is stored bottom-first, so the last element is the
+ * one you can reach. It is worth being consistent about even where it reads
+ * oddly, as it does for a face-down stock.
+ *
+ * Generic so it hands back your card type rather than this one: `topOf(pile)`
+ * on a pile of nertz cards still knows about seats.
+ */
+export function topOf<T>(pile: readonly T[]): T | undefined {
+  return pile[pile.length - 1];
+}
+
+/**
+ * A copy of a pile, one level deep, keeping whatever type it was.
+ *
+ * For the games that hold their state as plain data and produce a new state
+ * per move rather than editing the old one - a copy here is what stops an
+ * undo stack being fifty references to the same cards. One level is enough
+ * for every card model here; a card holding a nested array of its own (nertz
+ * marks) gets that array shared, which is why marks are replaced rather than
+ * pushed to.
+ */
+export function cloneCards<T extends Card>(pile: readonly T[]): T[] {
+  return pile.map((card) => ({ ...card }));
 }
 
 // Poker size is 2.5 x 3.5 inches - a 5:7 ratio - and cards look wrong at

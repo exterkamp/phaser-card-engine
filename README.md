@@ -27,25 +27,68 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 
 | | |
 | --- | --- |
-| `cards.ts` | `SUITS`, `RANKS`, `Suit`, `Rank`, `CardSuit`, `rankValue`, `isRed`, `sameColour`, `CardFace`, `standardDeck`, `cardName`, and the 5:7 card proportion |
+| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `SUITS`, `RANKS`, `Suit`, `Rank`, `CardSuit`, `rankValue`, `isRed`, `sameColour`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
 | `assets/cards` | 4.8MB of card art: seven themes × twelve courts and a back, plus the suit glyphs |
 | `assets/fonts` | the four woff2 files and their licences |
 
-## What is deliberately not in it
+## The card, and extending it
 
-**A `Card` type.** Nertz cards carry a seat, a deck-list entry and a set of
-marks, and mint ids from a counter because one deck there can hold two of the
-same card. Solitaire cards carry a face-up flag and take their id from the suit
-and rank, because a deck holds exactly one of each. Neither model is wrong and
-neither fits the other, so this package offers `CardFace` — the part they agree
-on — and each game builds its own card around it:
+`Card` is a base to extend, not a shape everything has to fit:
 
 ```ts
-const cards = standardDeck().map((face) => ({ ...face, id: `${face.suit}-${face.rank}`, faceUp: false }));
+interface Card extends CardFace {
+  id: string;
+  faceUp: boolean;
+}
 ```
+
+Those four fields are not a guess at a common denominator — they are exactly
+what the two games already had, field for field. Solitaire's card *is* this,
+narrowed to the four natural suits because a plain deck has no others. Nertz's
+is this plus what it needs:
+
+```ts
+interface SolitaireCard extends Card {
+  suit: Suit;               // no star cards in a plain deck
+}
+
+interface NertzCard extends Card {
+  seat: number;             // whose deck it came from
+  entry: number;            // which line of that deck list
+  marks?: CardMark[];       // what the shop did to it
+}
+```
+
+`buildDeck()` gives you fifty-two of the base, face down, with `spades-K` for
+an id — which is only safe because a standard deck holds one of each, and is
+worth it for what it does to a failing test. Hand it a maker and you get your
+own type back, which is how a game whose deck can hold two of the same card
+mints ids it can tell apart:
+
+```ts
+const deck = buildDeck<NertzCard>((face, index) => ({
+  ...face, id: `s${seat}-${face.suit}-${face.rank}-${minted++}`,
+  faceUp: false, seat, entry: index,
+}));                                   // NertzCard[]
+
+topOf(deck);                           // NertzCard | undefined, not Card
+cloneCards(deck);                      // NertzCard[]
+```
+
+The helpers are generic, so they hand back the card you put in. `src/extending.spec.ts`
+declares both games' real models and asserts this at the type level, and `npm test`
+typechecks the specs before running them — so a change that stops fitting either
+game fails the test run rather than the next migration.
+
+An interface rather than a class, because both games hold cards in pure state
+copied with a spread on every move; a class would survive `{ ...card }` as a
+plain object with its methods missing. A class of your own may of course
+`implements Card`.
+
+## What is deliberately not in it
 
 **Phaser.** Despite the name, version 0.1.0 has no Phaser dependency and no
 rendering in it. The `CardSprite`, the felt and rail drawing, the card-flight

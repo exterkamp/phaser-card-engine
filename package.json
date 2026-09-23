@@ -13,11 +13,17 @@
     },
     "./assets/*": "./assets/*"
   },
-  "files": ["dist", "assets", "src", "ATTRIBUTION.md"],
+  "files": [
+    "dist",
+    "assets",
+    "src",
+    "ATTRIBUTION.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "prepare": "npm run build"
+    "test": "npm run typecheck && vitest run",
+    "prepare": "npm run build",
+    "typecheck": "tsc -p tsconfig.spec.json"
   },
   "devDependencies": {
     "typescript": "~5.9.0",
