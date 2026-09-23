@@ -1,0 +1,217 @@
+import { CARD_HEIGHT, CARD_WIDTH } from './cards.js';
+
+// Where a stack of cards lives, and where each card in it sits.
+//
+// The primitive every card game on a table needs and none of them share: a
+// named place with a position, which cards land on and build up from. A
+// foundation is one. So is a stock, a waste, a free cell, a tableau column, a
+// peak position, a reserve, and the hole in the middle of Black Hole. Between
+// two games there are eleven kinds of pile and they are all this.
+//
+// It is geometry and nothing else - no Phaser, no sprites, no scene. That is
+// deliberate rather than incidental: where the sixth card of a squeezed fan
+// sits is arithmetic, and arithmetic that needs a browser to be tested is
+// arithmetic that does not get tested. What a renderer adds is drawing the
+// card at the point this hands it. See the demo.
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** A rectangle by its top-left corner, which is what overlap maths wants. */
+export interface Rect extends Point {
+  width: number;
+  height: number;
+}
+
+/**
+ * Which way a stack grows.
+ *
+ * `none` is a squared pile: every card on top of the last, which is what a
+ * stock, a waste and a foundation all are. The rest fan, so that the cards
+ * underneath still show something of themselves - an index, usually.
+ */
+export type FanDirection = 'none' | 'up' | 'down' | 'left' | 'right';
+
+export interface Stack {
+  /** What the game calls this place. Anything unique will do. */
+  readonly id: string;
+  /** Where the *first* card's centre goes. */
+  readonly x: number;
+  readonly y: number;
+  readonly fan: FanDirection;
+  /** Units between one card and the next. Ignored when the fan is none. */
+  readonly step: number;
+  /**
+   * How much room the fan may take, beyond the first card.
+   *
+   * Zero means unlimited. Otherwise a stack that would outgrow it squeezes:
+   * every gap shrinks by the same factor until the whole thing fits. A
+   * tableau column that reaches the bottom of the screen has to do something,
+   * and squeezing is the one thing that keeps every card's index visible
+   * rather than hiding the last few off the edge.
+   */
+  readonly maxSpread: number;
+}
+
+export function defineStack(
+  spec: Pick<Stack, 'id' | 'x' | 'y'> & Partial<Stack>,
+): Stack {
+  return { fan: 'none', step: 0, maxSpread: 0, ...spec };
+}
+
+/** Whether a fan runs along the y axis. */
+function vertical(fan: FanDirection): boolean {
+  return fan === 'up' || fan === 'down';
+}
+
+/** Which way along its axis a fan travels: down and right are positive. */
+function sign(fan: FanDirection): number {
+  return fan === 'up' || fan === 'left' ? -1 : 1;
+}
+
+/**
+ * How far each card sits from the first, along the fan's axis.
+ *
+ * `gaps` is the distance *before* each card, so gaps[0] belongs to the second
+ * card and the first is always at zero. Per-card rather than one step for the
+ * pile, because the gap a card needs depends on what is underneath it: a card
+ * lying on a face-down one only has to clear its edge, and a card lying on a
+ * face-up one has to clear its index.
+ *
+ * That is the one piece of this that looks like overkill until you have a
+ * pile of six face-down cards with a king-to-ace run on top of it, which
+ * Klondike deals on its seventh column.
+ */
+export function stackOffsets(stack: Stack, gaps: readonly number[]): number[] {
+  const offsets = [0];
+  for (const gap of gaps) offsets.push(offsets[offsets.length - 1] + gap);
+
+  const spread = offsets[offsets.length - 1];
+  if (!stack.maxSpread || spread <= stack.maxSpread) return offsets;
+
+  // Squeeze. Every gap by the same factor, so the fan stays even rather than
+  // cramming the last few cards and leaving the first ones roomy.
+  const squeeze = stack.maxSpread / spread;
+  return offsets.map((offset) => offset * squeeze);
+}
+
+/**
+ * Where every card in this stack sits, in order from the bottom.
+ *
+ * `gapBefore` is asked for the gap before the card at each index from 1 up;
+ * without it the stack's own step is used for every card, which is what a
+ * squared pile or an evenly fanned one wants.
+ */
+export function stackPositions(
+  stack: Stack,
+  count: number,
+  gapBefore?: (index: number) => number,
+): Point[] {
+  if (count <= 0) return [];
+  const step = stack.fan === 'none' ? 0 : stack.step;
+  const gaps = Array.from({ length: Math.max(0, count - 1) }, (_, i) =>
+    gapBefore ? gapBefore(i + 1) : step,
+  );
+
+  const along = sign(stack.fan);
+  return stackOffsets(stack, gaps).map((offset) =>
+    vertical(stack.fan)
+      ? { x: stack.x, y: stack.y + offset * along }
+      : { x: stack.x + offset * along, y: stack.y },
+  );
+}
+
+/** Where the next card to land on this stack would sit. */
+export function nextPosition(
+  stack: Stack,
+  count: number,
+  gapBefore?: (index: number) => number,
+): Point {
+  const positions = stackPositions(stack, count + 1, gapBefore);
+  return positions[positions.length - 1];
+}
+
+export interface CardSize {
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_CARD_SIZE: CardSize = { width: CARD_WIDTH, height: CARD_HEIGHT };
+
+/** The rectangle a card centred on a point covers. */
+export function cardRect(at: Point, size: CardSize = DEFAULT_CARD_SIZE): Rect {
+  return {
+    x: at.x - size.width / 2,
+    y: at.y - size.height / 2,
+    width: size.width,
+    height: size.height,
+  };
+}
+
+/**
+ * The rectangle the whole stack covers, empty or not.
+ *
+ * An empty stack still has a place on the table - it is the outline printed
+ * on the felt - so this answers for one card at the anchor when the count is
+ * zero. That is what makes an empty foundation a thing you can drop onto.
+ */
+export function stackBounds(
+  stack: Stack,
+  count: number,
+  size: CardSize = DEFAULT_CARD_SIZE,
+  gapBefore?: (index: number) => number,
+): Rect {
+  const positions = stackPositions(stack, Math.max(1, count), gapBefore);
+  const rects = positions.map((at) => cardRect(at, size));
+  const left = Math.min(...rects.map((r) => r.x));
+  const top = Math.min(...rects.map((r) => r.y));
+  const right = Math.max(...rects.map((r) => r.x + r.width));
+  const bottom = Math.max(...rects.map((r) => r.y + r.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** How much area two rectangles share. Zero if they do not touch. */
+export function overlap(a: Rect, b: Rect): number {
+  const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return width > 0 && height > 0 ? width * height : 0;
+}
+
+export interface StackContents {
+  stack: Stack;
+  /** How many cards are on it, which decides how much of the table it covers. */
+  count: number;
+  gapBefore?: (index: number) => number;
+}
+
+/**
+ * Which stack a dropped card is being offered to.
+ *
+ * By overlap rather than by where the pointer is, and by the *most* overlapped
+ * rather than the first that touches. A card held between two columns should
+ * go to the one it is mostly over, which is what a hand on a real table does
+ * and is not what "the pointer is inside this rectangle" gives you - with a
+ * finger on a phone the pointer is under the card and often over the wrong
+ * pile entirely.
+ *
+ * Returns nothing when the card is over no stack at all, which is a drop that
+ * should snap back rather than one that should guess.
+ */
+export function stackUnder(
+  card: Rect,
+  stacks: readonly StackContents[],
+  size: CardSize = DEFAULT_CARD_SIZE,
+): Stack | undefined {
+  let best: Stack | undefined;
+  let bestArea = 0;
+  for (const { stack, count, gapBefore } of stacks) {
+    const area = overlap(card, stackBounds(stack, count, size, gapBefore));
+    if (area > bestArea) {
+      best = stack;
+      bestArea = area;
+    }
+  }
+  return best;
+}

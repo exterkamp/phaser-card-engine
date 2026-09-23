@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.3.1
+npm install github:exterkamp/phaser-card-engine#v0.4.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -30,6 +30,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 
 | | |
 | --- | --- |
+| `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `cardRect`, `overlap` — where a pile of cards lives and where each card in it sits |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
@@ -132,16 +133,84 @@ copied with a spread on every move; a class would survive `{ ...card }` as a
 plain object with its methods missing. A class of your own may of course
 `implements Card`.
 
+## Stacks: where a pile of cards lives
+
+The primitive every card game on a table needs and none of them share. A named
+place with a position, which cards land on and build up from — a foundation is
+one, and so is a stock, a waste, a free cell, a tableau column, a peak
+position, a reserve, and the hole in the middle of Black Hole. Across the two
+games there are eleven kinds of pile and they are all this:
+
+```ts
+const foundation = defineStack({ id: 'foundation-0', x: 60, y: 70 });
+const column = defineStack({
+  id: 'column-0', x: 60, y: 210,
+  fan: 'down', step: 26,     // how far each card sits from the one before
+  maxSpread: 190,            // and how much room the fan may take in total
+});
+
+stackPositions(column, 13);  // where all thirteen cards go
+nextPosition(column, 13);    // where a fourteenth would land
+stackUnder(cardRect(pointer), piles);   // which stack a dragged card is over
+```
+
+Three things in there are worth more than they look:
+
+**The fan squeezes rather than overflowing.** A column that would outgrow its
+`maxSpread` shrinks *every* gap by the same factor, so it stays even instead of
+cramming the last few cards. A tableau that reaches the bottom of the screen
+has to do something, and this is the one thing that keeps every card's index on
+screen.
+
+**The gap before each card can differ.** `stackPositions` takes an optional
+`gapBefore(index)`, because the room a card needs depends on what is under it:
+one lying on a face-down card only has to clear its edge, one lying on a
+face-up card has to clear its index. That looks like overkill until you have
+six face-down cards with a king-to-ace run on top, which Klondike deals on its
+seventh column.
+
+**`stackUnder` measures overlap, not the pointer.** The most-overlapped stack
+wins, which is what a hand on a real table does — with a finger on a phone the
+pointer is under the card and often over the wrong pile entirely.
+
+It is geometry and nothing else: no Phaser, no sprites, no scene. That is
+deliberate. Where the sixth card of a squeezed fan sits is arithmetic, and
+arithmetic that needs a browser to be tested is arithmetic that does not get
+tested. Phaser's job is to draw a card at the point this hands it.
+
+## The demo
+
+```bash
+npm install
+npm run demo        # http://localhost:4390
+```
+
+A Phaser board made of nothing but stacks: four squared foundations, a deck,
+and six columns dealt three to thirteen cards deep. There are no rules — any
+card may be dropped on any stack — because rules are the game's and this is
+showing the placement. Drag a card and the stack it is being offered to lights
+up where the card would land; **Toggle squeeze** switches `maxSpread` between
+190 and unlimited, and the thirteen-card column goes from fanning at 26 units a
+card to 15.8.
+
+The demo draws its own crude card — a rounded rectangle, the index in the
+engine's own index face, and the engine's suit glyph, with the real painted art
+for the courts. That is because the package does not ship a sprite yet, which
+is the next thing to take and the subject of the section below.
+
+Vite serves the package's own `assets/` as the site root, so `/cards/art/...`
+in the browser is exactly what `deckThemePath` returns — the demo is a
+consumer, and that contract is tested by being used.
+
 ## What is deliberately not in it
 
-**Phaser.** Despite the name, version 0.1.0 has no Phaser dependency and no
-rendering in it. The `CardSprite`, the felt and rail drawing, the card-flight
-animations and the tableau fan maths are the obvious next things to take — and
-they are also the two games' *most* divergent files: `card-sprite.ts` differs
-by 184 lines between the repos and `table.ts` by 154, because one draws four
-seats' themed decks with marks on them and the other draws one deck with ghost
-suits under it. Merging those means both games' look is in play in the same
-change, so it waits until this seam has survived a deploy.
+**A card sprite.** The `CardSprite`, the felt and rail drawing, and the
+card-flight animations are the two games' *most* divergent files:
+`card-sprite.ts` differs by 184 lines between the repos and `table.ts` by 154,
+because one draws four seats' themed decks with marks on them and the other
+draws one deck with ghost suits under it. Merging those means both games' look
+is in play in the same change, so they wait. The stack geometry came first
+precisely because it has no such problem.
 
 ## Consuming the assets
 
@@ -169,8 +238,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.3.1` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.3.1.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.4.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.4.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain
