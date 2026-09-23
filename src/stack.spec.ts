@@ -5,10 +5,13 @@ import {
   defineStack,
   nextPosition,
   overlap,
+  readableOrder,
   stackBounds,
+  stackDepths,
   stackOffsets,
   stackPositions,
   stackUnder,
+  topCardIndex,
 } from './stack.js';
 
 const squared = defineStack({ id: 'stock', x: 100, y: 100 });
@@ -166,5 +169,62 @@ describe('rectangles', () => {
     expect(overlap(a, { x: 5, y: 0, width: 10, height: 10 })).toBe(50);
     expect(overlap(a, { x: 10, y: 0, width: 10, height: 10 })).toBe(0);
     expect(overlap(a, a)).toBe(100);
+  });
+});
+
+describe('which end of the stack is on top', () => {
+  const cards = 4;
+
+  it('draws the newest card in front by default', () => {
+    const stack = defineStack({ id: 's', x: 0, y: 0, fan: 'down', step: 20 });
+    expect(stack.order).toBe('last-on-top');
+    expect(stackDepths(stack, cards)).toEqual([0, 1, 2, 3]);
+    expect(topCardIndex(stack, cards)).toBe(cards - 1);
+  });
+
+  it('draws the oldest card in front when asked to', () => {
+    const stack = defineStack({
+      id: 's', x: 0, y: 0, fan: 'up', step: 20, order: 'first-on-top',
+    });
+    expect(stackDepths(stack, cards)).toEqual([3, 2, 1, 0]);
+    expect(topCardIndex(stack, cards)).toBe(0);
+  });
+
+  // The whole point: it changes nothing about where the cards are.
+  it('moves no card an inch either way', () => {
+    const down = defineStack({ id: 'a', x: 10, y: 10, fan: 'down', step: 20 });
+    const flipped = defineStack({
+      id: 'b', x: 10, y: 10, fan: 'down', step: 20, order: 'first-on-top',
+    });
+    expect(stackPositions(flipped, 5)).toEqual(stackPositions(down, 5));
+    expect(stackBounds(flipped, 5)).toEqual(stackBounds(down, 5));
+  });
+
+  it('has nothing on top of an empty stack', () => {
+    expect(topCardIndex(defineStack({ id: 's', x: 0, y: 0 }), 0)).toBeUndefined();
+    expect(stackDepths(defineStack({ id: 's', x: 0, y: 0 }), 0)).toEqual([]);
+  });
+
+  // Down and right cover the card before them; up and left cover the card
+  // after. So which order leaves an index showing depends on the direction,
+  // and getting it backwards is a column of blank slivers.
+  it('knows which order leaves the indexes showing', () => {
+    expect(readableOrder('down')).toBe('last-on-top');
+    expect(readableOrder('right')).toBe('last-on-top');
+    expect(readableOrder('up')).toBe('first-on-top');
+    expect(readableOrder('left')).toBe('first-on-top');
+    expect(readableOrder('none')).toBe('last-on-top');
+  });
+
+  it('puts the card in front at the end of the pile the fan grows from', () => {
+    // A fan running up with its oldest card in front: that card is the one
+    // lowest on screen, and it is the one a finger lands on.
+    const stack = defineStack({
+      id: 's', x: 0, y: 100, fan: 'up', step: 20, order: 'first-on-top',
+    });
+    const at = stackPositions(stack, 3);
+    const front = topCardIndex(stack, 3)!;
+    expect(at[front]).toEqual({ x: 0, y: 100 });
+    expect(Math.max(...at.map((p) => p.y))).toBe(at[front].y);
   });
 });

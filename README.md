@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.4.2
+npm install github:exterkamp/phaser-card-engine#v0.5.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -30,7 +30,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 
 | | |
 | --- | --- |
-| `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `cardRect`, `overlap` — where a pile of cards lives and where each card in it sits |
+| `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
@@ -154,7 +154,37 @@ nextPosition(column, 13);    // where a fourteenth would land
 stackUnder(cardRect(pointer), piles);   // which stack a dragged card is over
 ```
 
-Three things in there are worth more than they look:
+### Which end is on top
+
+Every stack also has an `order`, and it is not geometry — the cards sit in
+exactly the same places either way. It decides which card is drawn *over* the
+others, and therefore **which edge of each card the one beside it covers**. A
+card carries its index in its top-left corner, so that is the whole question:
+
+| fan | `last-on-top` shows | `first-on-top` shows |
+| --- | --- | --- |
+| down | each card's top edge — **the index** | each card's bottom edge |
+| up | each card's bottom edge | each card's top edge — **the index** |
+| right | each card's left edge — **the index** | each card's right edge |
+| left | each card's right edge | each card's left edge — **the index** |
+| none | the newest card | the oldest card |
+
+So a tableau fanning down wants `last-on-top` and the same tableau fanning up
+wants `first-on-top`; get it backwards and you have a column of blank slivers
+with one readable card at the end. `readableOrder(fan)` answers it, and is
+offered rather than applied — a stock showing the card it will deal next wants
+the other one on purpose.
+
+```ts
+stackDepths(stack, count);     // how far above the felt each card is drawn
+topCardIndex(stack, count);    // which card is in front — the one a finger lands on
+```
+
+`topCardIndex` is worth having on its own: on a `first-on-top` stack the card
+drawn in front is the *oldest*, so a game picking cards up by touch must not
+assume the last one. What may legally be played is still the game's business.
+
+Three more things are worth more than they look:
 
 **The fan squeezes rather than overflowing.** A column that would outgrow its
 `maxSpread` shrinks *every* gap by the same factor, so it stays even instead of
@@ -195,25 +225,26 @@ direction a stack can run, labelled on the felt.
 
 | | |
 | --- | --- |
-| **Squared** | four foundations and a deck — every card lands exactly on the last |
+| **Squared** | every card lands exactly on the last |
 | **Fan right** and **fan left** | the same fan run both ways along the x axis; the leftward one grows back towards its own edge, which is how a pile sits in a corner and stays there |
-| **Fan down** | four tableau columns, two to ten cards deep |
+| **Fan down** | a tableau column |
 | **Fan up** | anchored at its *bottom* card, growing towards the top of the screen |
+
+**Each of those appears twice, side by side — once `last-on-top` and once
+`first-on-top`** — because that pair is the thing worth seeing. The two piles
+are otherwise identical: same anchor, same step, same cards, same positions to
+the pixel. Only the draw order differs, and the fanning-down pair reads as six
+indexes against one, while the fanning-up pair reads the other way round.
 
 There are no rules — any card may be dropped on any stack — because rules are
 the game's and this is showing the placement. Drag a card and the stack it is
 being offered to lights up where the card would land. **Toggle squeeze**
-switches `maxSpread` between its cap and unlimited, and **every direction
-squeezes the same way**: at their caps the sideways fans draw at 18.8 units a
-card instead of 22, the deep column at 21.1 instead of 26, and the upward fan
-at 23.8 instead of 26.
+switches `maxSpread` between its cap and unlimited, and every direction
+squeezes the same way.
 
-One thing the demo shows that no amount of prose would: an upward fan displays
-the *bottom* edges of the cards underneath, and a card's index is at its
-top-left — so all but the newest card reads as a blank sliver. The geometry
-does not care which way a stack runs; the card does. A game fanning upward
-wants its index drawn at both ends, which is the sprite's business and not this
-package's yet.
+Dragging takes the card drawn *in front*, which on a `first-on-top` pile is the
+oldest one — anything else would mean pulling a card out from under the cards
+covering it.
 
 On a touchscreen the canvas captures its own gestures — without that a drag is
 also a page scroll, and the card sits still while the whole demo slides up the
@@ -265,8 +296,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.4.2` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.4.2.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.5.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.5.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

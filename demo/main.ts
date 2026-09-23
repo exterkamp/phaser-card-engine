@@ -5,15 +5,19 @@ import {
   Card,
   DISPLAY_FONT,
   DEFAULT_DECK_THEME,
+  FanDirection,
   Stack,
+  StackOrder,
   buildDeck,
   cardRect,
   defineStack,
   nextPosition,
   seeded,
   shuffle,
+  stackDepths,
   stackPositions,
   stackUnder,
+  topCardIndex,
 } from 'phaser-card-engine';
 import { CardView, preload } from './cards.js';
 
@@ -28,24 +32,25 @@ const WIDTH = 480;
 // Tall enough for everything below at its full fan, and no taller: the board
 // is fitted by width on a phone, so every unit of height beyond what the cards
 // use is green nobody plays on.
-const HEIGHT = 640;
+const HEIGHT = 760;
 const MARGIN = 12;
 const COLUMNS = 6;
 const PITCH = (WIDTH - 2 * MARGIN) / COLUMNS;
 const centre = (column: number) => MARGIN + PITCH / 2 + column * PITCH;
 
-// The room a fan has before it must squeeze. Unlimited on one setting and a
-// hard cap on the other, which is what the Toggle squeeze button switches
-// between - and everything here is dealt deep enough that the difference is
-// the whole point rather than a detail.
-const ROOMY = 0;
-const TIGHT = 190;
+// Where each band of the specimen sheet sits. Every band holds the same fan
+// twice - once with the newest card in front and once with the oldest - so
+// the two are side by side rather than a button apart.
+const TOP_ROW = 70;
+const RIGHT_ROW = 175;
+const LEFT_ROW = 280;
+const COLUMN_TOP = 355;
+const UP_FOOT = 700;
 
-// Where each band of the specimen sheet sits.
-const TOP_ROW = 60;         // squared: foundations and a deck
-const SIDEWAYS = 165;       // one fan running right, one running left
-const COLUMN_TOP = 250;     // four fanning down
-const UP_FOOT = 560;        // and one fanning up from its bottom card
+// Low caps, so that piles of five or six cards still reach them and the
+// squeeze is visible on every one of these rather than only on the deepest.
+const DOWN_CAP = 110;
+const SIDE_CAP = 80;
 
 interface Pile {
   stack: Stack;
@@ -89,65 +94,63 @@ class StackDemo extends Phaser.Scene {
   private report(): void {
     const note = document.getElementById('note');
     if (!note) return;
-    const deepest = this.piles
-      .filter((pile) => pile.stack.fan === 'down')
-      .reduce((most, pile) => (pile.cards.length > most.cards.length ? pile : most));
-    const gap = deepest.cards.length > 1
-      ? Math.round((deepest.cards[1].y - deepest.cards[0].y) * 10) / 10
+    const column = this.pile('down-last-on-top');
+    const gap = column && column.cards.length > 1
+      ? Math.round((column.cards[1].y - column.cards[0].y) * 10) / 10
       : 0;
     note.textContent = this.squeezed
-      ? `maxSpread ${TIGHT}: the ${deepest.cards.length}-card column fans at ${gap} units a card instead of 26. `
-        + 'Every direction squeezes the same way.'
-      : 'maxSpread 0: every pile fans at its full step, whatever it costs.';
+      ? `Each pair is the same stack twice, drawn newest-in-front and oldest-in-front. `
+        + `maxSpread ${DOWN_CAP}: the six-card column fans at ${gap} units a card instead of 26.`
+      : 'Each pair is the same stack twice, drawn newest-in-front and oldest-in-front. '
+        + 'maxSpread 0: every pile fans at its full step, whatever it costs.';
   }
 
   // --- the stacks ----------------------------------------------------------
 
   private buildStacks(): void {
     const kept = new Map(this.piles.map((pile) => [pile.stack.id, pile.cards]));
-    const spread = this.squeezed ? TIGHT : ROOMY;
+    const capped = this.squeezed;
 
-    // One of everything the primitive can do, laid out as a specimen sheet.
-    // A real game picks the two or three it needs; this shows all five.
+    // Every direction twice: once with the newest card drawn in front and
+    // once with the oldest. Same anchors, same steps, same cards - the only
+    // difference is which edge of each card the one beside it covers, which
+    // is the whole of what the option does.
+    const pair = (
+      fan: FanDirection, step: number, cap: number,
+      places: Record<StackOrder, { x: number; y: number }>,
+    ): Stack[] =>
+      (['last-on-top', 'first-on-top'] as StackOrder[]).map((order) =>
+        defineStack({
+          id: `${fan}-${order}`,
+          ...places[order],
+          fan,
+          step,
+          maxSpread: capped ? cap : 0,
+          order,
+        }));
+
     const stacks: Stack[] = [
-      // Squared: no fan, so every card lands exactly on the last. A
-      // foundation, a stock, a waste and a free cell are all this.
-      ...[0, 1, 2, 3].map((i) =>
-        defineStack({ id: `foundation-${i}`, x: centre(i), y: TOP_ROW })),
+      ...pair('none', 0, 0, {
+        'last-on-top': { x: centre(0), y: TOP_ROW },
+        'first-on-top': { x: centre(1), y: TOP_ROW },
+      }),
       defineStack({ id: 'deck', x: centre(5), y: TOP_ROW }),
 
-      // Sideways, in both directions. A fan running right grows away from its
-      // anchor; one running left grows back towards the other edge, which is
-      // how you put a pile in the top-right corner and have it stay there.
-      defineStack({
-        id: 'fan-right', x: MARGIN + CARD_WIDTH / 2, y: SIDEWAYS,
-        fan: 'right', step: 22, maxSpread: spread ? 150 : 0,
+      ...pair('right', 22, SIDE_CAP, {
+        'last-on-top': { x: MARGIN + CARD_WIDTH / 2, y: RIGHT_ROW },
+        'first-on-top': { x: WIDTH / 2 + CARD_WIDTH / 2, y: RIGHT_ROW },
       }),
-      defineStack({
-        id: 'fan-left', x: WIDTH - MARGIN - CARD_WIDTH / 2, y: SIDEWAYS,
-        fan: 'left', step: 22, maxSpread: spread ? 150 : 0,
+      ...pair('left', 22, SIDE_CAP, {
+        'last-on-top': { x: WIDTH / 2 - CARD_WIDTH / 2, y: LEFT_ROW },
+        'first-on-top': { x: WIDTH - MARGIN - CARD_WIDTH / 2, y: LEFT_ROW },
       }),
-
-      // Down, which is what a tableau column is.
-      ...Array.from({ length: 4 }, (_, i) =>
-        defineStack({
-          id: `column-${i}`, x: centre(i), y: COLUMN_TOP + CARD_HEIGHT / 2,
-          fan: 'down', step: 26, maxSpread: spread,
-        })),
-
-      // And up, anchored at its *bottom* card so the pile grows towards the
-      // top of the screen - which is what you want for a pile near a bottom
-      // edge, and for an opponent's hand across the table from you.
-      //
-      // Worth seeing rather than only reading: an upward fan shows the
-      // *bottom* edges of the cards underneath, and a card's index is at its
-      // top-left, so all but the newest card reads as a blank sliver. The
-      // geometry does not care which way it goes; the card does. A game
-      // fanning upward wants its index drawn at both ends, which is the
-      // sprite's business and not this package's yet.
-      defineStack({
-        id: 'fan-up', x: centre(5), y: UP_FOOT,
-        fan: 'up', step: 26, maxSpread: spread,
+      ...pair('down', 26, DOWN_CAP, {
+        'last-on-top': { x: centre(0), y: COLUMN_TOP + CARD_HEIGHT / 2 },
+        'first-on-top': { x: centre(1), y: COLUMN_TOP + CARD_HEIGHT / 2 },
+      }),
+      ...pair('up', 26, DOWN_CAP, {
+        'last-on-top': { x: centre(4), y: UP_FOOT },
+        'first-on-top': { x: centre(5), y: UP_FOOT },
       }),
     ];
 
@@ -168,22 +171,39 @@ class StackDemo extends Phaser.Scene {
     this.printLabels();
   }
 
-  /** What each band is, since the whole point is telling them apart. */
+  /** Which direction each pile fans, and which end of it is drawn in front. */
   private printLabels(): void {
     for (const label of this.labels.splice(0)) label.destroy();
-    const say = (x: number, y: number, text: string, origin = 0) => {
+
+    const say = (x: number, y: number, text: string, colour: string, size = '10px') => {
       const item = this.add.text(x, y, text, {
-        fontFamily: DISPLAY_FONT,
-        fontSize: '11px',
-        color: '#7fae86',
-      }).setOrigin(origin, 0.5).setDepth(0);
+        fontFamily: DISPLAY_FONT, fontSize: size, color: colour,
+      }).setOrigin(0.5, 0.5).setDepth(0);
       this.labels.push(item);
+      return item;
     };
-    say(MARGIN, TOP_ROW - CARD_HEIGHT / 2 - 10, 'SQUARED');
-    say(MARGIN, SIDEWAYS - CARD_HEIGHT / 2 - 10, 'FAN RIGHT');
-    say(WIDTH - MARGIN, SIDEWAYS - CARD_HEIGHT / 2 - 10, 'FAN LEFT', 1);
-    say(MARGIN, COLUMN_TOP - 10, 'FAN DOWN');
-    say(WIDTH - MARGIN, UP_FOOT + CARD_HEIGHT / 2 + 10, 'FAN UP', 1);
+
+    // Over each pile, only which end of it is in front. Short, because two
+    // piles in a pair are 76 units apart and "squared · first on top" is
+    // ninety units of text - the first attempt at this had every label
+    // overlapping its neighbour and the outer ones running off the board.
+    for (const { stack } of this.piles) {
+      if (stack.id === 'deck') {
+        say(stack.x, stack.y - CARD_HEIGHT / 2 - 9, 'deck', '#7fae86');
+        continue;
+      }
+      const y = stack.fan === 'up'
+        ? stack.y + CARD_HEIGHT / 2 + 9
+        : stack.y - CARD_HEIGHT / 2 - 9;
+      say(stack.x, y, stack.order === 'last-on-top' ? 'last' : 'first', '#cfead0');
+    }
+
+    // And the direction once per row, in whatever space that row has left.
+    say(centre(3), TOP_ROW, 'SQUARED', '#7fae86', '11px');
+    say(WIDTH - 56, RIGHT_ROW, 'RIGHT', '#7fae86', '11px');
+    say(56, LEFT_ROW, 'LEFT', '#7fae86', '11px');
+    say(WIDTH / 2 - 20, COLUMN_TOP + 60, 'DOWN', '#7fae86', '11px');
+    say(WIDTH / 2 - 20, UP_FOOT - 60, 'UP', '#7fae86', '11px');
   }
 
   // --- dealing -------------------------------------------------------------
@@ -203,22 +223,17 @@ class StackDemo extends Phaser.Scene {
       }
     };
 
-    // Deliberately uneven, and the long ones deliberately longer than the cap:
-    // three cards fit either way, twelve never do, and everything between is
-    // where you can watch the fan tighten. Every direction gets one pile long
-    // enough to squeeze, and it all has to add up to fifty-two - the first
-    // arrangement of this gave the columns and the sideways fans the whole
-    // deck and left the up-fan and the deck with nothing.
-    // Every one of the four directions gets a pile past its cap, so the
-    // squeeze is visible everywhere rather than only down the columns - the
-    // first arrangement gave the sideways fans six cards each, which fit
-    // comfortably either way and made the note under the board a claim the
-    // board did not support.
-    [2, 4, 6, 10].forEach((count, i) => give(`column-${i}`, count));   // 22
-    give('fan-right', 9);                      // 31
-    give('fan-left', 9);                       // 40
-    give('fan-up', 9);                         // 49
-    give('deck', deck.length - next);          // and the last three squared
+    // Both halves of every pair get the same number of cards, because the
+    // pair only means anything if the two piles are otherwise identical. Five
+    // or six is past every cap above, so each one squeezes.
+    for (const order of ['last-on-top', 'first-on-top']) {
+      give(`none-${order}`, 3);        // 6 across the pair
+      give(`right-${order}`, 5);       // 10
+      give(`left-${order}`, 5);        // 10
+      give(`down-${order}`, 6);        // 12
+      give(`up-${order}`, 6);          // 12
+    }
+    give('deck', deck.length - next);  // and the last two, squared
 
     const total = this.piles.reduce((sum, pile) => sum + pile.cards.length, 0);
     if (total !== 52) throw new Error(`dealt ${total} cards, not 52`);
@@ -245,9 +260,13 @@ class StackDemo extends Phaser.Scene {
 
   private layOut(pile: Pile): void {
     const at = stackPositions(pile.stack, pile.cards.length);
+    // Where each card goes, and which of them is drawn over the others. The
+    // positions are the same whichever order the stack is in; only these
+    // depths change, and they are the whole difference on screen.
+    const depth = stackDepths(pile.stack, pile.cards.length);
     pile.cards.forEach((view, i) => {
       view.setPosition(at[i].x, at[i].y);
-      view.setDepth(1 + i);
+      view.setDepth(1 + depth[i]);
     });
   }
 
@@ -260,8 +279,12 @@ class StackDemo extends Phaser.Scene {
   private pickUp(view: CardView): void {
     const from = this.piles.find((pile) => pile.cards.includes(view));
     if (!from) return;
-    // Only the top card, which is all a squared stack ever offers anyway.
-    if (from.cards[from.cards.length - 1] !== view) return;
+    // The card drawn in front, which on a first-on-top stack is the *oldest*
+    // one rather than the newest. That is the card a finger has actually
+    // landed on, and picking up anything else would mean dragging a card out
+    // from under the pile covering it.
+    const front = topCardIndex(from.stack, from.cards.length);
+    if (front === undefined || from.cards[front] !== view) return;
     this.dragging = { view, from, offset: new Phaser.Math.Vector2(0, 0) };
     view.setDepth(100);
   }

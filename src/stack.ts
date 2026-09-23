@@ -34,6 +34,36 @@ export interface Rect extends Point {
  */
 export type FanDirection = 'none' | 'up' | 'down' | 'left' | 'right';
 
+/**
+ * Which end of a stack is drawn on top of the rest.
+ *
+ * Not geometry - every card sits in exactly the same place either way - but
+ * the difference between a pile you can read and one you cannot, because it
+ * decides *which edge of each card the one above it covers*.
+ *
+ * A card carries its index in its top-left corner, so the edge left showing
+ * is the whole question:
+ *
+ * | fan | last-on-top shows | first-on-top shows |
+ * | --- | --- | --- |
+ * | down | each card's top edge - **the index** | each card's bottom edge |
+ * | up | each card's bottom edge | each card's top edge - **the index** |
+ * | right | each card's left edge - **the index** | each card's right edge |
+ * | left | each card's right edge | each card's left edge - **the index** |
+ * | none | the newest card | the oldest card |
+ *
+ * So a tableau fanning down wants last-on-top and the same tableau fanning up
+ * wants first-on-top, and a pile that gets this backwards is a column of
+ * blank slivers with one readable card at the end. `readableOrder` below
+ * answers it for you.
+ *
+ * The other half is squared piles, where it is not about legibility at all: a
+ * waste shows the card you just turned (last) and a face-down stock shows the
+ * card you will turn next (first, near enough) - and a deck whose top card is
+ * the bottom of the pile is a deck that deals from the wrong end.
+ */
+export type StackOrder = 'last-on-top' | 'first-on-top';
+
 export interface Stack {
   /** What the game calls this place. Anything unique will do. */
   readonly id: string;
@@ -53,12 +83,29 @@ export interface Stack {
    * rather than hiding the last few off the edge.
    */
   readonly maxSpread: number;
+  /** Which end of the pile is drawn over the rest. See StackOrder. */
+  readonly order: StackOrder;
 }
 
 export function defineStack(
   spec: Pick<Stack, 'id' | 'x' | 'y'> & Partial<Stack>,
 ): Stack {
-  return { fan: 'none', step: 0, maxSpread: 0, ...spec };
+  return { fan: 'none', step: 0, maxSpread: 0, order: 'last-on-top', ...spec };
+}
+
+/**
+ * The order that leaves every card's index showing, for a given fan.
+ *
+ * Down and right cover the card before, so the newest card belongs on top;
+ * up and left cover the card after, so the oldest does. A squared pile has no
+ * index to worry about and gets last-on-top, which is what a waste wants.
+ *
+ * Offered rather than applied: a game may well want the other one - a stock
+ * showing its next card, a hand fanned so the cards read from the far end -
+ * and this is a default worth knowing rather than a rule.
+ */
+export function readableOrder(fan: FanDirection): StackOrder {
+  return fan === 'up' || fan === 'left' ? 'first-on-top' : 'last-on-top';
 }
 
 /** Whether a fan runs along the y axis. */
@@ -131,6 +178,33 @@ export function nextPosition(
 ): Point {
   const positions = stackPositions(stack, count + 1, gapBefore);
   return positions[positions.length - 1];
+}
+
+/**
+ * How far above the felt each card in the stack is drawn, bottom of the pile
+ * first - so `depths[i]` belongs to the same card as `positions[i]`.
+ *
+ * Zero for the card furthest back and `count - 1` for the one in front,
+ * whichever end of the pile that is. Add your own base to keep a dragged card
+ * above everything.
+ */
+export function stackDepths(stack: Stack, count: number): number[] {
+  return Array.from({ length: Math.max(0, count) }, (_, i) =>
+    stack.order === 'last-on-top' ? i : count - 1 - i,
+  );
+}
+
+/**
+ * Which card is drawn over all the others, as an index into the pile.
+ *
+ * The card a finger actually lands on, which is not always the card the rules
+ * call the top of the pile: a first-on-top stack draws its *oldest* card in
+ * front. A game picking cards up by touch wants this one; a game asking what
+ * may legally be played wants its own rules.
+ */
+export function topCardIndex(stack: Stack, count: number): number | undefined {
+  if (count <= 0) return undefined;
+  return stack.order === 'last-on-top' ? count - 1 : 0;
 }
 
 export interface CardSize {
