@@ -188,7 +188,7 @@ export function nextPosition(
  * whichever end of the pile that is. Add your own base to keep a dragged card
  * above everything.
  */
-export function stackDepths(stack: Stack, count: number): number[] {
+export function stackDepths(stack: Pick<Stack, 'order'>, count: number): number[] {
   return Array.from({ length: Math.max(0, count) }, (_, i) =>
     stack.order === 'last-on-top' ? i : count - 1 - i,
   );
@@ -202,7 +202,7 @@ export function stackDepths(stack: Stack, count: number): number[] {
  * front. A game picking cards up by touch wants this one; a game asking what
  * may legally be played wants its own rules.
  */
-export function topCardIndex(stack: Stack, count: number): number | undefined {
+export function topCardIndex(stack: Pick<Stack, 'order'>, count: number): number | undefined {
   if (count <= 0) return undefined;
   return stack.order === 'last-on-top' ? count - 1 : 0;
 }

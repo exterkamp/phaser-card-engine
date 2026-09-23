@@ -186,6 +186,57 @@ check(hand.square === true, 'every card comes to rest square, after spinning');
 check(hand.faceUp.you && hand.faceUp.board && !hand.faceUp.west && !hand.faceUp.burn,
   'your cards and the board face up, everyone else-s face down');
 
+// And the hands, where a fan facing across the table straddles the wrap at
+// 180 degrees. Cards already in a hand must take the short way to their new
+// places when another arrives - the naive tween spins them a full turn to
+// move five degrees, which is what it looked like when this shipped.
+console.log('\nand the hands');
+await send('Page.navigate', { url: `${host.replace(/\/$/, '')}/hands.html` });
+if (!await until('!!window.__game && Object.values(window.__game.scene.keys)[0].deck?.length')) {
+  console.log('  FAIL the hands never appeared');
+  done(1);
+}
+await sleep(1500);
+const hands = 'Object.values(window.__game.scene.keys)[0]';
+
+await evaluate(`(() => {
+  const s = ${hands};
+  window.__turns = [];
+  const add = s.tweens.add.bind(s.tweens);
+  s.tweens.add = (config) => {
+    const card = config.targets;
+    if (card && typeof config.angle === 'number' && typeof card.angle === 'number') {
+      // A throw is meant to spin; a re-fan is not. layHand's tweens are the
+      // short ones.
+      window.__turns.push({ turn: Math.abs(config.angle - card.angle), refan: config.duration === 160 });
+    }
+    return add(config);
+  };
+  return true;
+})()`);
+for (let i = 0; i < 10; i++) {
+  await evaluate(`${hands}.throwOne()`);
+  await sleep(240);
+}
+await sleep(800);
+
+const turning = JSON.parse(await evaluate(`(() => {
+  const all = window.__turns.filter(t => t.turn > 0.5);
+  const refans = all.filter(t => t.refan);
+  return JSON.stringify({
+    refans: refans.length,
+    worst: Math.round(Math.max(0, ...refans.map(t => t.turn))),
+    spun: refans.filter(t => t.turn > 180).length,
+  });
+})()`));
+check(turning.refans > 0, `the hands re-fan as cards arrive (${turning.refans} tweens)`);
+check(turning.spun === 0 && turning.worst <= 90,
+  `no card spins to get to its new place (worst turn ${turning.worst} degrees)`);
+check(
+  await evaluate(`${hands}.held.length + ${hands}.opposite.length === 10`),
+  'ten cards reach the two hands',
+);
+
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
 done(failures ? 1 : 0);

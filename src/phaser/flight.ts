@@ -191,6 +191,23 @@ function pop(scene: Phaser.Scene, sprite: Phaser.GameObjects.Container, base: nu
   });
 }
 
+/**
+ * The angle to tween to so a card takes the short way round.
+ *
+ * Phaser keeps `angle` wrapped to ±180, and the geometry here does not - a
+ * hand turned to face across the table holds cards at 189 degrees, and the
+ * sprite showing one reports -171. Tweening from -171 to 189 is a tween
+ * through 360 degrees: the card does a full spin on its way to a position
+ * five degrees from where it started.
+ *
+ * That is not a hypothetical. It shipped, and what it looked like was two
+ * cards in an untouched hand spinning whenever a third was dealt to it -
+ * which is a strange enough thing to see that it took measuring to believe.
+ */
+export function shortestTurn(from: number, to: number): number {
+  return spinTarget(from, to, 0);
+}
+
 export interface DealOptions extends ThrowOptions {
   /** Milliseconds between one card leaving and the next. Default 90. */
   stagger?: number;

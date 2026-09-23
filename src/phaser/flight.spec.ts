@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { defineHand, handPositions } from '../hand.js';
 import { defineStack } from '../stack.js';
-import { dealCards, flightDuration, landingsFor, spinTarget, throwCard, throwLanding } from './flight.js';
+import {
+  dealCards, flightDuration, landingsFor, shortestTurn, spinTarget, throwCard, throwLanding,
+} from './flight.js';
 
 // A scene that records the tweens it is asked for and runs their onComplete,
 // which is all this library uses a scene for. The whole file is Phaser-free at
@@ -189,5 +191,40 @@ describe('throwing into a hand', () => {
   it('deals onto the end of a hand that already holds cards', () => {
     const places = landingsFor({ hand, count: 2 }, 2);
     expect(places).toEqual(handPositions(hand, 4).slice(2));
+  });
+});
+
+describe('turning the short way', () => {
+  // The bug this exists for: a hand facing across the table holds cards at
+  // 189 degrees, the sprite showing one reports -171, and a plain tween from
+  // one to the other is a full spin to reach a place five degrees away.
+  it('crosses the wrap instead of going all the way round', () => {
+    // The exact case that shipped: a card reporting -175 in a hand that now
+    // wants it at 180. Five degrees, not three hundred and fifty-five.
+    const turn = (from: number, to: number) => Math.abs(shortestTurn(from, to) - from);
+    expect(turn(-175, 180)).toBeCloseTo(5);
+    expect(turn(-166, 189)).toBeCloseTo(5);
+    expect(turn(176, 171)).toBeCloseTo(5);
+  });
+
+  // -171 and 189 are the same angle, so the honest answer is to stay put.
+  it('does not move a card that is already where it should be', () => {
+    expect(shortestTurn(-171, 189)).toBeCloseTo(-171);
+    expect(shortestTurn(0, 720)).toBeCloseTo(0);
+  });
+
+  it('never turns more than half a circle', () => {
+    for (let from = -720; from <= 720; from += 37) {
+      for (let to = -720; to <= 720; to += 53) {
+        expect(Math.abs(shortestTurn(from, to) - from)).toBeLessThanOrEqual(180.0001);
+      }
+    }
+  });
+
+  it('still arrives at the angle asked for', () => {
+    for (const [from, to] of [[-171, 189], [10, -350], [0, 540], [33, 33]]) {
+      const target = shortestTurn(from, to);
+      expect(((target - to) % 360 + 360) % 360).toBeCloseTo(0);
+    }
   });
 });

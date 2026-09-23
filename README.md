@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.10.0
+npm install github:exterkamp/phaser-card-engine#v0.10.1
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -316,6 +316,31 @@ the position **and the angle** that hand holds it at. Settling square and
 letting the hand redraw it at 10° would produce exactly the snap the exact
 landing exists to prevent.
 
+### Re-fanning: use `layHand`
+
+```ts
+layHand(this, this.root, cards, hand, { base: 1000, except: [inFlight] });
+```
+
+Two traps live here and `layHand` is the answer to both.
+
+**Turn the short way.** Phaser wraps `angle` to ±180 and the geometry does
+not, so a hand facing across the table holds a card at 189° while the sprite
+showing it reports −171°. Tweening one to the other is a tween through 360
+degrees — the card does a full spin to reach a place five degrees away. That
+shipped in 0.10.0, and what it looked like was *two cards in an untouched hand
+spinning whenever a third was dealt to it*, which is strange enough to see that
+it took measuring to believe. `shortestTurn` is the arithmetic; `layHand`
+applies it.
+
+**Leave cards in flight alone.** A card being thrown into the hand is already
+being moved by the throw. Count it in the fan so the others make room, but do
+not tween it — pass it in `except`, or the throw and the re-fan fight over the
+same sprite and the card stutters as it arrives.
+
+`npm run smoke` now watches every re-fan tween on that page and fails if any
+card turns more than 90° to reach a place one step away.
+
 ## Drawing a card
 
 ```ts
@@ -498,8 +523,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.10.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.10.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.10.1` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.10.1.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain

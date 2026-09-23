@@ -9,10 +9,9 @@ import {
   defineHand,
   handPositions,
   shuffle,
-  stackDepths,
 } from 'phaser-card-engine';
 import {
-  CardSprite, boardRoot, createBoard, preloadCardArt, throwCard,
+  CardSprite, boardRoot, createBoard, layHand, preloadCardArt, throwCard,
 } from 'phaser-card-engine/phaser';
 
 // Three hands of the same cards, held three ways.
@@ -101,25 +100,18 @@ class HandsDemo extends Phaser.Scene {
 
   // --- the hands -----------------------------------------------------------
 
-  /** Both hands re-fanned around their middles. */
-  private layOut(): void {
-    for (const [hand, cards, base] of [
-      [this.mine, this.held, 2000] as const,
-      [this.theirs, this.opposite, 1000] as const,
-    ]) {
-      const places = handPositions(hand, cards.length);
-      const depths = stackDepths(hand, cards.length);
-      cards.forEach((card, i) => {
-        // Every card moves when one arrives: the fan opens around its middle.
-        this.tweens.add({
-          targets: card,
-          x: places[i].x, y: places[i].y, angle: places[i].angle,
-          duration: 160, ease: 'Cubic.easeOut',
-        });
-        card.setDepth(base + depths[i]);
-      });
-    }
-    this.root.sort('depth');
+  /**
+   * Both hands re-fanned around their middles.
+   *
+   * layHand does the moving, and the turning-the-short-way that goes with it:
+   * the hand across the table holds cards either side of 180 degrees, and
+   * tweening those to their new angles the naive way spins them all the way
+   * round to get five degrees away.
+   */
+  private layOut(inFlight?: CardSprite): void {
+    const except = inFlight ? [inFlight] : undefined;
+    layHand(this, this.root, this.held, this.mine, { base: 2000, except });
+    layHand(this, this.root, this.opposite, this.theirs, { base: 1000, except });
     this.report();
   }
 
@@ -137,7 +129,10 @@ class HandsDemo extends Phaser.Scene {
     // The hand is about to hold one more, so every card in it moves - and the
     // thrown one aims at where it will sit in the hand that includes it.
     cards.push(card);
-    this.layOut();
+    // The others make room now, so the hand is open by the time the card
+    // gets there - and the thrown card is left out of that, because the
+    // throw is already moving it.
+    this.layOut(card);
     await throwCard(this, card, { hand, count: cards.length - 1 }, { spins: 1 });
     if (toMine) card.setFaceUp(true);
     this.layOut();

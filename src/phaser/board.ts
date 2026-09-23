@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { Stack, stackDepths } from '../index.js';
+import { Hand, Stack, handPositions, stackDepths } from '../index.js';
+import { shortestTurn } from './flight.js';
 
 // A board that is actually as sharp as the screen it is on.
 //
@@ -108,6 +109,72 @@ export function orderStack(
   const depths = stackDepths(stack, sprites.length);
   sprites.forEach((sprite, i) => {
     (sprite as Phaser.GameObjects.Container).setDepth(base + depths[i]);
+  });
+  container.sort('depth');
+}
+
+export interface LayHandOptions {
+  /** Depth band for this hand, keeping it clear of other piles. */
+  base?: number;
+  /** How long the re-fan takes. Zero puts the cards there at once. */
+  duration?: number;
+  ease?: string;
+  /**
+   * Cards something else is already moving - a card in flight, on its way
+   * into this hand.
+   *
+   * They are counted in the fan, so the rest make room for them, and they are
+   * given their depth, but they are not tweened. Without this the throw and
+   * the re-fan both animate the same sprite and fight over it, which looks
+   * like the card stuttering as it arrives.
+   */
+  except?: readonly Phaser.GameObjects.GameObject[];
+}
+
+/**
+ * Re-fans a hand: every card to its place, turned the short way, in order.
+ *
+ * A hand opens around its middle, so a card arriving moves every card already
+ * in it - this is the function that moves them. Two things it does that are
+ * easy to leave out:
+ *
+ * It turns each card the short way. Phaser wraps `angle` to ±180 and the
+ * geometry does not, so a hand facing across the table asks a card reporting
+ * -171 to go to 189, and a plain tween takes the long way round - a full spin
+ * on a card that only needed five degrees. See `shortestTurn`.
+ *
+ * And it sorts the container afterwards, because depth inside a Container is
+ * a list order rather than a number. See `orderStack`, which is the same
+ * point.
+ */
+export function layHand(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  sprites: readonly Phaser.GameObjects.Container[],
+  hand: Hand,
+  options: LayHandOptions = {},
+): void {
+  const places = handPositions(hand, sprites.length);
+  const depths = stackDepths(hand, sprites.length);
+  const duration = options.duration ?? 160;
+
+  sprites.forEach((sprite, i) => {
+    const place = places[i];
+    sprite.setDepth((options.base ?? 0) + depths[i]);
+    if (options.except?.includes(sprite)) return;
+    if (duration <= 0) {
+      sprite.setPosition(place.x, place.y);
+      sprite.setAngle(place.angle);
+      return;
+    }
+    scene.tweens.add({
+      targets: sprite,
+      x: place.x,
+      y: place.y,
+      angle: shortestTurn(sprite.angle, place.angle),
+      duration,
+      ease: options.ease ?? 'Cubic.easeOut',
+    });
   });
   container.sort('depth');
 }
