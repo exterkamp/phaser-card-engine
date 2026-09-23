@@ -4,6 +4,7 @@ import {
   CARD_WIDTH,
   Card,
   DISPLAY_FONT,
+  cardFaceMetrics,
   DEFAULT_DECK_THEME,
   FanDirection,
   Stack,
@@ -19,7 +20,7 @@ import {
   stackUnder,
   topCardIndex,
 } from 'phaser-card-engine';
-import { CardView, preload } from './cards.js';
+import { CardSprite, preloadCardArt } from 'phaser-card-engine/phaser';
 
 // A board made of nothing but stacks.
 //
@@ -54,20 +55,20 @@ const SIDE_CAP = 80;
 
 interface Pile {
   stack: Stack;
-  cards: CardView[];
+  cards: CardSprite[];
 }
 
 class StackDemo extends Phaser.Scene {
   readonly theme = DEFAULT_DECK_THEME;
   private piles: Pile[] = [];
   private squeezed = true;
-  private dragging?: { view: CardView; from: Pile; offset: Phaser.Math.Vector2 };
+  private dragging?: { view: CardSprite; from: Pile; offset: Phaser.Math.Vector2 };
   private readonly marks: Phaser.GameObjects.Graphics[] = [];
   private readonly labels: Phaser.GameObjects.Text[] = [];
   private highlight?: Phaser.GameObjects.Graphics;
 
   preload(): void {
-    preload(this, this.theme);
+    preloadCardArt(this, { themes: [this.theme] });
   }
 
   create(): void {
@@ -76,7 +77,7 @@ class StackDemo extends Phaser.Scene {
     this.buildStacks();
     this.deal();
 
-    this.input.on('dragstart', (_p: unknown, view: CardView) => this.pickUp(view));
+    this.input.on('dragstart', (_p: unknown, view: CardSprite) => this.pickUp(view));
     this.input.on('drag', (pointer: Phaser.Input.Pointer) => this.carry(pointer));
     this.input.on('dragend', () => this.drop());
 
@@ -98,11 +99,15 @@ class StackDemo extends Phaser.Scene {
     const gap = column && column.cards.length > 1
       ? Math.round((column.cards[1].y - column.cards[0].y) * 10) / 10
       : 0;
+    // What a card needs to show for its index to be readable, which the
+    // package knows and the squeeze can undercut - and does here, visibly.
+    const peek = cardFaceMetrics(CARD_WIDTH).peek;
+    const pair = 'Each pair is the same stack twice, drawn newest-in-front and oldest-in-front. ';
     note.textContent = this.squeezed
-      ? `Each pair is the same stack twice, drawn newest-in-front and oldest-in-front. `
-        + `maxSpread ${DOWN_CAP}: the six-card column fans at ${gap} units a card instead of 26.`
-      : 'Each pair is the same stack twice, drawn newest-in-front and oldest-in-front. '
-        + 'maxSpread 0: every pile fans at its full step, whatever it costs.';
+      ? pair + `maxSpread ${DOWN_CAP}: the six-card column fans at ${gap} units a card instead of 26 `
+        + `— under the ${peek.toFixed(1)} an index needs, so the ranks are clipped.`
+      : pair + `maxSpread 0: every pile fans at its full step, clear of the ${peek.toFixed(1)} `
+        + 'units an index needs.';
   }
 
   // --- the stacks ----------------------------------------------------------
@@ -241,8 +246,8 @@ class StackDemo extends Phaser.Scene {
     this.layOutAll();
   }
 
-  private makeCard(card: Card): CardView {
-    const view = new CardView(this, card);
+  private makeCard(card: Card): CardSprite {
+    const view = new CardSprite(this, { ...card, faceUp: true }, { theme: this.theme });
     view.setDepth(1);
     view.setInteractive(
       new Phaser.Geom.Rectangle(0, 0, CARD_WIDTH, CARD_HEIGHT),
@@ -276,7 +281,7 @@ class StackDemo extends Phaser.Scene {
 
   // --- dragging ------------------------------------------------------------
 
-  private pickUp(view: CardView): void {
+  private pickUp(view: CardSprite): void {
     const from = this.piles.find((pile) => pile.cards.includes(view));
     if (!from) return;
     // The card drawn in front, which on a first-on-top stack is the *oldest*
@@ -300,7 +305,7 @@ class StackDemo extends Phaser.Scene {
     this.showHighlight(target);
   }
 
-  private targetFor(view: CardView): Stack | undefined {
+  private targetFor(view: CardSprite): Stack | undefined {
     return stackUnder(
       cardRect({ x: view.x, y: view.y }),
       this.piles

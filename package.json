@@ -1,6 +1,6 @@
 {
   "name": "phaser-card-engine",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The shared half of two card games: card art, suits, ranks, deck themes, shuffling and the typefaces.",
   "license": "CC0-1.0",
   "type": "module",
@@ -12,7 +12,11 @@
       "default": "./dist/index.js"
     },
     "./assets/*": "./assets/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./phaser": {
+      "types": "./dist/phaser/index.d.ts",
+      "default": "./dist/phaser/index.js"
+    }
   },
   "files": [
     "dist",
@@ -41,5 +45,13 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/exterkamp/phaser-card-engine.git"
+  },
+  "peerDependencies": {
+    "phaser": "^3.80.0"
+  },
+  "peerDependenciesMeta": {
+    "phaser": {
+      "optional": true
+    }
   }
 }

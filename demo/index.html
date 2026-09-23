@@ -36,7 +36,8 @@
       /* The canvas handles its own gestures; without this a drag is also a
          page scroll on a touchscreen. */
       #board { width: min(480px, 100%); flex: 1; touch-action: none; }
-      .row { display: flex; gap: 0.5rem; }
+      .row { display: flex; gap: 0.5rem; align-items: center; }
+      a { color: #ffd166; font-size: 0.8rem; }
       button {
         font-family: 'Cinzel', Georgia, serif; font-size: 0.75rem; letter-spacing: 0.05em;
         text-transform: uppercase; color: #fdfdfd; background: #17594a;
@@ -57,6 +58,7 @@
     <div class="row">
       <button id="deal">Deal again</button>
       <button id="squeeze">Toggle squeeze</button>
+      <a href="/sizes.html">card sizes →</a>
     </div>
     <script type="module" src="./main.ts"></script>
   </body>

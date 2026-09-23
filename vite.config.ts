@@ -10,7 +10,13 @@ export default defineConfig({
   root: 'demo',
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
-    alias: { 'phaser-card-engine': resolve(__dirname, 'src/index.ts') },
+    // The subpath first: these are prefix matches, so the bare name would
+    // otherwise swallow `phaser-card-engine/phaser` and try to open
+    // `src/index.ts/phaser`.
+    alias: {
+      'phaser-card-engine/phaser': resolve(__dirname, 'src/phaser/index.ts'),
+      'phaser-card-engine': resolve(__dirname, 'src/index.ts'),
+    },
   },
   // Bound to every interface on purpose: the point of this demo is a card
   // game, and a card game is tested with a thumb. `npm run demo` prints the
@@ -26,5 +32,15 @@ export default defineConfig({
     allowedHosts: ['.local', '.lan', '.home', '.internal'],
   },
   preview: { host: '0.0.0.0', port: 4391 },
-  build: { outDir: resolve(__dirname, 'demo-dist'), emptyOutDir: true },
+  build: {
+    outDir: resolve(__dirname, 'demo-dist'),
+    emptyOutDir: true,
+    // Two pages, so rollup needs both entry points named.
+    rollupOptions: {
+      input: {
+        stacks: resolve(__dirname, 'demo/index.html'),
+        sizes: resolve(__dirname, 'demo/sizes.html'),
+      },
+    },
+  },
 });

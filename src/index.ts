@@ -13,6 +13,7 @@
 // exactly that and nothing more.
 export * from './cards.js';
 export * from './stack.js';
+export * from './card-face.js';
 export * from './shuffle.js';
 export * from './deck-theme.js';
 export * from './fonts.js';

@@ -13,7 +13,7 @@ That is the rule for what belongs in here, and it is narrower than "could this
 be shared": **was it already the same in both?**
 
 ```bash
-npm install github:exterkamp/phaser-card-engine#v0.5.0
+npm install github:exterkamp/phaser-card-engine#v0.6.0
 ```
 
 The build image needs `git` — see [Installing it](#installing-it), which has
@@ -30,6 +30,8 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 
 | | |
 | --- | --- |
+| `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
+| `phaser/` | `CardSprite` and `preloadCardArt`, behind `phaser-card-engine/phaser` |
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
@@ -215,6 +217,10 @@ npm install
 npm run demo        # http://localhost:4390, and the LAN address it prints
 ```
 
+Two pages: **stacks** at `/`, and **card sizes** at `/sizes.html` — the same
+card at seven widths from 24 to 168, with buttons to turn them over, walk
+through the seven decks, and swap a court for a number card.
+
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
 to open on a phone. `npm run demo:serve` does the same for the built demo on
@@ -260,15 +266,45 @@ Vite serves the package's own `assets/` as the site root, so `/cards/art/...`
 in the browser is exactly what `deckThemePath` returns — the demo is a
 consumer, and that contract is tested by being used.
 
+## Drawing a card
+
+```ts
+import { CardSprite, preloadCardArt } from 'phaser-card-engine/phaser';
+
+preloadCardArt(this, { themes: ['press'] });          // in a scene's preload
+new CardSprite(this, card, { width: 60, theme: 'press' });
+```
+
+The face is Nertz's, which is the one of the two games that had thought hardest
+about it: **a large index with its suit beside it on one line in the top-left,
+and one big suit — or a court portrait, full bleed — filling the bottom.** No
+mirrored bottom-right corner; once a card is legible at a glance the second
+index is redundant, and dropping it is what paid for everything else being
+bigger. A number card gets one big pip rather than a true pip count, because
+five rows of small glyphs at card size reads as a blurry cluster.
+
+**It draws at the width you ask for rather than drawing once and scaling**, so
+the index is rasterised for the size it is shown at — a 24-unit card and a
+168-unit card are both sharp, and a 24-unit card scaled up to 168 is not. Every
+measurement is a ratio of the width, in `cardFaceMetrics`, which is plain
+arithmetic in the core with tests rather than something you need a browser to
+check.
+
+One number from it is worth knowing by name: **`peek`**, how much of a card has
+to show for its index to be read — 29.4 units on a 60-unit card. That is the
+number a fanned stack's `step` should be chosen against, and the stacks demo
+squeezes past it on purpose so you can see what it costs.
+
+`phaser` is an optional peer dependency and all of this lives behind
+`phaser-card-engine/phaser`, so a game that only wants the cards, the shuffling
+and the stack geometry never installs it.
+
 ## What is deliberately not in it
 
-**A card sprite.** The `CardSprite`, the felt and rail drawing, and the
-card-flight animations are the two games' *most* divergent files:
-`card-sprite.ts` differs by 184 lines between the repos and `table.ts` by 154,
-because one draws four seats' themed decks with marks on them and the other
-draws one deck with ghost suits under it. Merging those means both games' look
-is in play in the same change, so they wait. The stack geometry came first
-precisely because it has no such problem.
+**The rest of the table.** The felt, the rail, the printed lettering, the
+card-flight animations and the win cascade are all still in the two games. The
+card and the stack are the pieces both games agreed on; the table is where they
+diverge hardest.
 
 ## Consuming the assets
 
@@ -296,8 +332,8 @@ at install time — which is what decides the one requirement below.
 
 | How you ask for it | needs `git` | runs `prepare` | works |
 | --- | --- | --- | --- |
-| `github:exterkamp/phaser-card-engine#v0.5.0` | **yes** | yes | ✅ |
-| `https://github.com/.../archive/refs/tags/v0.5.0.tar.gz` | no | no | ❌ no `dist/` |
+| `github:exterkamp/phaser-card-engine#v0.6.0` | **yes** | yes | ✅ |
+| `https://github.com/.../archive/refs/tags/v0.6.0.tar.gz` | no | no | ❌ no `dist/` |
 
 **`git` has to be in the image.** npm shells out to it to resolve a GitHub
 dependency at all, and `prepare` only runs for git dependencies — so the plain
