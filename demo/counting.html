@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>phaser-card-engine — counting cards</title>
+    <style>
+      @font-face { font-family: 'Cinzel'; src: url('./fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; font-display: block; }
+      @font-face { font-family: 'Jost'; src: url('./fonts/jost-latin.woff2') format('woff2'); font-weight: 300 700; font-display: block; }
+      @font-face { font-family: 'Archivo'; src: url('./fonts/archivo-latin.woff2') format('woff2'); font-weight: 500 700; font-display: block; }
+      html, body { margin: 0; min-height: 100%; background: #0b2119; color: #cfead0; font-family: 'Jost', system-ui, sans-serif; }
+      body { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.8rem 0.8rem 2rem; box-sizing: border-box; }
+      h1 { font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem; letter-spacing: 0.06em; margin: 0; color: #fdfdfd; text-transform: uppercase; }
+      p { margin: 0; font-size: 0.8rem; text-align: center; max-width: 32rem; color: #9fc4a4; line-height: 1.5; }
+      p code, .key { color: #ffd166; }
+      a { color: #ffd166; font-size: 0.8rem; }
+      #board { width: min(480px, 100%); aspect-ratio: 3 / 4; touch-action: none; }
+      .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+      .group-label { font-family: 'Cinzel', Georgia, serif; font-size: 0.66rem; letter-spacing: 0.05em; text-transform: uppercase; color: #7fae86; }
+      button {
+        font-family: 'Cinzel', Georgia, serif; font-size: 0.75rem; letter-spacing: 0.05em;
+        text-transform: uppercase; color: #fdfdfd; background: #17594a;
+        border: 1px solid #cfead0; border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer;
+      }
+      button.on { border-color: #ffd166; color: #ffd166; }
+      button:hover { border-color: #ffd166; }
+      #stats { font-size: 0.78rem; color: #cfead0; }
+      #quiz {
+        display: none; width: min(30rem, 100%); box-sizing: border-box;
+        background: #13463a; border: 1px solid #ffd166; border-radius: 8px;
+        padding: 0.9rem 1rem; text-align: center;
+      }
+      #quiz h2 { font-family: 'Cinzel', Georgia, serif; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 0.5rem; color: #fdfdfd; }
+      #quiz .stepper { display: flex; gap: 0.8rem; align-items: center; justify-content: center; margin: 0.6rem 0; }
+      #guess { font-family: 'Cinzel', Georgia, serif; font-size: 1.6rem; color: #ffd166; min-width: 3.5rem; }
+      #quiz button.step { font-size: 1.1rem; padding: 0.2rem 0.7rem; }
+      #result { min-height: 1.4em; font-size: 0.82rem; margin: 0.5rem 0 0; }
+      #result.good { color: #9fe6a0; }
+      #result.bad { color: #e8a0a8; }
+      .home {
+        position: fixed; top: 0.55rem; left: 0.6rem; z-index: 20;
+        font-family: 'Cinzel', Georgia, serif; font-size: 0.66rem;
+        letter-spacing: 0.05em; text-transform: uppercase; text-decoration: none;
+        color: #fdfdfd; background: #17594a; border: 1px solid #cfead0;
+        border-radius: 4px; padding: 0.28rem 0.5rem; line-height: 1;
+      }
+      .home:hover, .home:focus-visible { border-color: #ffd166; color: #ffd166; }
+    </style>
+  </head>
+  <body>
+    <a class="home" href="./">&larr; Demos</a>
+    <h1>Counting cards</h1>
+    <p>
+      Hi-Lo practice: <code>2-6</code> count <code>+1</code>, <code>7-9</code> count
+      <code>0</code>, <code>10-A</code> count <code>-1</code>. Keep the running
+      count in your head as the shoe deals, then press
+      <span class="key">C</span> to check yourself.
+    </p>
+    <div id="board"></div>
+    <p id="stats"></p>
+    <div id="quiz">
+      <h2>What is the running count?</h2>
+      <div class="stepper">
+        <button class="step" id="minus" aria-label="Decrease guess">&minus;</button>
+        <span id="guess">0</span>
+        <button class="step" id="plus" aria-label="Increase guess">+</button>
+      </div>
+      <div class="row">
+        <button id="reveal">Reveal</button>
+        <button id="closequiz">Keep dealing</button>
+      </div>
+      <p id="result"></p>
+    </div>
+    <div class="row">
+      <span class="group-label">Shoe</span>
+      <button data-decks="1">1 deck</button>
+      <button data-decks="2">2 decks</button>
+      <button data-decks="6" class="on">6 decks</button>
+    </div>
+    <div class="row">
+      <span class="group-label">Speed</span>
+      <button data-speed="manual" class="on">Manual</button>
+      <button data-speed="slow">Slow</button>
+      <button data-speed="medium">Medium</button>
+      <button data-speed="fast">Fast</button>
+    </div>
+    <div class="row">
+      <button id="deal">Deal (space)</button>
+      <button id="check">Check count (C)</button>
+      <button id="newshoe">New shoe</button>
+    </div>
+    <script type="module" src="./counting.ts"></script>
+  </body>
+</html>

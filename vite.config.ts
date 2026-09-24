@@ -50,6 +50,7 @@ export default defineConfig({
         holdem: resolve(__dirname, 'demo/holdem.html'),
         hands: resolve(__dirname, 'demo/hands.html'),
         deck: resolve(__dirname, 'demo/deck.html'),
+        counting: resolve(__dirname, 'demo/counting.html'),
       },
     },
   },
