@@ -17,10 +17,12 @@ import {
 // The twelve courts, coloured while the game is running.
 //
 // Every card on this page is drawn from the same twelve SVG files; what
-// changes when you move a slider is three hex values substituted into the
-// source before it is rasterised. The baked decks in assets/cards/art are
-// these same twelve, put through the same steps at build time - so the seven
-// presets below are not seven sets of art, they are seven palettes.
+// changes when you pick a colour is three hex values substituted into the
+// source before it is rasterised.
+//
+// The seven presets used to be seven directories of WebP - 4.1MB of baked
+// court art, one bake per deck. They are three hex values each now, which is
+// all they ever were.
 const WIDTH = 480;
 const HEIGHT = 520;   // three rows of 164 from y=106, plus a margin
 const COURT_RASTER = 480;   // what the baked art is, so the comparison is fair
@@ -93,6 +95,7 @@ class CourtTable extends Phaser.Scene {
       }
       preset.value = 'press';
       preset.addEventListener('change', () => {
+        if (!preset.value) return;
         this.palette = { ...COURT_PALETTES[preset.value as DeckTheme] };
         this.showPalette();
         void this.repaint();
@@ -101,9 +104,15 @@ class CourtTable extends Phaser.Scene {
 
     for (const role of ['ink', 'gold', 'red'] as const) {
       const input = document.getElementById(role) as HTMLInputElement | null;
+      input?.addEventListener('input', () => {
+        this.palette = { ...this.palette, [role]: input.value };
+        this.showPalette();
+      });
+      // On `change` rather than `input`: dragging round a colour wheel fires
+      // a hundred of those, and each one is twelve cards to re-rasterise.
       input?.addEventListener('change', () => {
         this.palette = { ...this.palette, [role]: input.value };
-        if (preset) preset.value = '';
+        this.showPalette();
         void this.repaint();
       });
     }
@@ -113,14 +122,14 @@ class CourtTable extends Phaser.Scene {
       // for - the seven presets could all have been directories of WebP.
       const hue = () => Math.floor(Math.random() * 360);
       const base = hue();
+      // Ink dark, field light, garment between: the three have to differ in
+      // lightness and not only in hue, or two of them merge into one shape at
+      // the size a card is actually played at.
       this.palette = {
-        ink: hsl(base, 55, 30),
-        gold: hsl((base + 150) % 360, 62, 62),
-        red: hsl((base + 40) % 360, 58, 44),
+        ink: hsl(base, 55, 28),
+        gold: hsl((base + 150) % 360, 62, 68),
+        red: hsl((base + 40) % 360, 58, 46),
       };
-      if (document.getElementById('preset')) {
-        (document.getElementById('preset') as HTMLSelectElement).value = '';
-      }
       this.showPalette();
       void this.repaint();
     });
@@ -132,6 +141,19 @@ class CourtTable extends Phaser.Scene {
     for (const role of ['ink', 'gold', 'red'] as const) {
       const input = document.getElementById(role) as HTMLInputElement | null;
       if (input) input.value = this.palette[role];
+      const readout = document.getElementById(`${role}-hex`);
+      if (readout) readout.textContent = this.palette[role];
+    }
+    // Which preset this is, if it is one. A mixed palette that happens to
+    // land on a baked deck should say so rather than claim to be custom.
+    const preset = document.getElementById('preset') as HTMLSelectElement | null;
+    if (preset) {
+      const match = DECK_THEMES.find((theme) => {
+        const p = COURT_PALETTES[theme];
+        return p.ink === this.palette.ink && p.gold === this.palette.gold
+          && p.red === this.palette.red;
+      });
+      preset.value = match ?? '';
     }
   }
 }

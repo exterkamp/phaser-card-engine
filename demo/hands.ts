@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   CARD_HEIGHT,
   Card,
+  COURT_PALETTES,
   DEFAULT_DECK_THEME,
   DISPLAY_FONT,
   Hand,
@@ -11,7 +12,7 @@ import {
   shuffle,
 } from 'phaser-card-engine';
 import {
-  CardSprite, boardRoot, createBoard, layHand, preloadCardArt, throwCard,
+  CardSprite, boardRoot, createBoard, layHand, preloadCardArt, renderCourts, throwCard,
 } from 'phaser-card-engine/phaser';
 
 // Three hands of the same cards, held three ways.
@@ -41,6 +42,10 @@ class HandsDemo extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    // The courts are rendered, not loaded, so this is what puts portraits on
+    // the twelve. Not awaited: a card built before its portrait lands shows
+    // its pip and takes the portrait when it arrives.
+    void renderCourts(this, COURT_PALETTES[DEFAULT_DECK_THEME]);
     this.root = boardRoot(this);
     this.shape();
     this.newDeck();

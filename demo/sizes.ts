@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
   Card,
+  COURT_PALETTES,
   DECK_THEMES,
   DeckTheme,
   DISPLAY_FONT,
@@ -9,7 +10,7 @@ import {
   buildDeck,
   cardFaceMetrics,
 } from 'phaser-card-engine';
-import { CardSprite, boardRoot, createBoard, preloadCardArt } from 'phaser-card-engine/phaser';
+import { CardSprite, boardRoot, createBoard, preloadCardArt, renderCourts } from 'phaser-card-engine/phaser';
 
 // The same card at seven sizes.
 //
@@ -49,6 +50,10 @@ class SizesDemo extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    // The courts are rendered, not loaded, so this is what puts portraits on
+    // the twelve. Not awaited: a card built before its portrait lands shows
+    // its pip and takes the portrait when it arrives.
+    void renderCourts(this, COURT_PALETTES[this.theme]);
     this.root = boardRoot(this);
     this.lay();
 
@@ -59,6 +64,10 @@ class SizesDemo extends Phaser.Scene {
     });
     document.getElementById('theme')?.addEventListener('click', () => {
       this.theme = DECK_THEMES[(DECK_THEMES.indexOf(this.theme) + 1) % DECK_THEMES.length];
+      // A theme is a palette, so switching one is a render rather than a
+      // download. The first visit to a deck pays for it; going back to one
+      // already seen is free, because its textures are still in the manager.
+      void renderCourts(this, COURT_PALETTES[this.theme]);
       this.lay();
     });
     document.getElementById('ranks')?.addEventListener('click', () => {

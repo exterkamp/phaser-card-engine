@@ -2,10 +2,12 @@
 // work and garment colours, and a card back with its own field, medallion and
 // border.
 //
-// The art is in this package under assets/cards/art/<theme>/, baked from
-// web-nert's tools/render-face-art.py. This file and that art are the reason
-// the package exists: both games had their own copy of the directory, 4.8MB
-// each, byte for byte the same.
+// A theme is a palette and a back. The courts it names are rendered from the
+// twelve SVG sources - see court.ts, where COURT_PALETTES holds the seven -
+// and only the back is a file, under assets/cards/art/<theme>/back.webp.
+//
+// This file and that art are the reason the package exists: both games had
+// their own copy of the directory, byte for byte the same.
 //
 // A theme name is effectively a wire format in a game with a lobby - renaming
 // one breaks a match in progress - and it is a storage format in a game

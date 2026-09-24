@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   CARD_HEIGHT,
   Card,
+  COURT_PALETTES,
   DEFAULT_DECK_THEME,
   DISPLAY_FONT,
   Stack,
@@ -15,7 +16,7 @@ import {
 } from 'phaser-card-engine';
 import {
   CardSprite, boardRoot, createBoard, dealCards, flightDuration, orderStack,
-  preloadCardArt, throwCard, toBoard,
+  preloadCardArt, renderCourts, throwCard, toBoard,
 } from 'phaser-card-engine/phaser';
 
 // Throwing cards at things.
@@ -46,6 +47,10 @@ class ThrowDemo extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    // The courts are rendered, not loaded, so this is what puts portraits on
+    // the twelve. Not awaited: a card built before its portrait lands shows
+    // its pip and takes the portrait when it arrives.
+    void renderCourts(this, COURT_PALETTES[DEFAULT_DECK_THEME]);
     this.root = boardRoot(this);
 
     // Three piles to throw at, and a deck in the corner to throw from.

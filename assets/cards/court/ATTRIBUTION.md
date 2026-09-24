@@ -39,10 +39,8 @@ only the top half is taken, cropped to where the figure actually reaches, with
 the source's own index and border rule painted out — see `src/court.ts`, where
 every one of those numbers is a measured constant with the reason beside it.
 
-Two routes out of these files, and both start here:
-
-* `renderCourts` recolours and rasterises them in the browser, which is what
-  makes a palette nobody baked possible.
-* `assets/cards/art/<theme>/` is the same thing done ahead of time by
-  web-nert's `tools/render-face-art.py`, which additionally adds a press —
-  ink spread and plate misregistration — that the runtime path does not.
+`renderCourts` recolours and rasterises them in the browser. That is the only
+route now: `assets/cards/art/<theme>/` held the same twelve baked ahead of time
+by web-nert's `tools/render-face-art.py`, and those 84 files were removed once
+this worked. The bake additionally applied a press — ink spread and plate
+misregistration — which the runtime path does not reproduce.

@@ -5,6 +5,7 @@ import {
   Card,
   DISPLAY_FONT,
   cardFaceMetrics,
+  COURT_PALETTES,
   DEFAULT_DECK_THEME,
   FanDirection,
   Stack,
@@ -20,7 +21,7 @@ import {
   topCardIndex,
 } from 'phaser-card-engine';
 import {
-  CardSprite, boardRoot, createBoard, orderStack, preloadCardArt, toBoard,
+  CardSprite, boardRoot, createBoard, orderStack, preloadCardArt, renderCourts, toBoard,
 } from 'phaser-card-engine/phaser';
 
 // A board made of nothing but stacks.
@@ -75,6 +76,10 @@ class StackDemo extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    // The courts are rendered, not loaded, so this is what puts portraits on
+    // the twelve. Not awaited: a card built before its portrait lands shows
+    // its pip and takes the portrait when it arrives.
+    void renderCourts(this, COURT_PALETTES[this.theme]);
     // Everything goes in here. The container is scaled by the device's pixel
     // ratio, so the canvas is rasterised at screen density while every
     // coordinate below stays in the 480-unit board's own units.

@@ -11,10 +11,9 @@ import { Rect } from './stack.js';
 // pipeline with the baking taken out, so a palette can be chosen while the
 // game is running rather than only while it is being built.
 //
-// Why bother, when the baked art already exists: twelve sources gzip to about
-// 490kB and cover every palette there will ever be, where the baked decks are
-// 700kB each and cover exactly the seven somebody thought of. A game that
-// wants its own colours currently cannot have them at any price.
+// The baked decks were 84 files and 4.1MB, and are gone: twelve sources gzip
+// to about 490kB and cover every palette there will ever be, where seven
+// directories of WebP covered exactly the seven somebody thought of.
 //
 // Nothing here touches a canvas - it is string and rectangle arithmetic, and
 // it is in the Phaser-free half of the package on purpose.
@@ -79,7 +78,8 @@ export interface CourtPalette {
   red: string;
 }
 
-/** The seven baked decks, as palettes rather than as directories of WebP. */
+/** The seven themes. These were seven directories of WebP until they were
+ * three hex values each, which is all they had ever been. */
 export const COURT_PALETTES: Record<DeckTheme, CourtPalette> = {
   // The source as drawn - a websafe ramp, bright and a little electric.
   classic: { ink: '#5555aa', gold: '#ffff55', red: '#ff5555' },

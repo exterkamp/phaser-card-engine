@@ -127,6 +127,20 @@ const moved = await evaluate(`(() => {
 })()`);
 check(moved === true, 'a card dropped on another stack joins it');
 
+// And the courts arrive on a page that never waits for them. Every demo but
+// /courts.html starts its render and builds its deck in the same breath, so
+// the portraits land on cards that were already drawn as pips - which is the
+// only thing making that legal, and it fails silently if it stops working.
+const upgraded = await evaluate(`(() => {
+  const all = [];
+  const walk = (o) => { for (const c of (o.list || [])) { all.push(c); walk(c); } };
+  ${scene}.children.list.forEach(walk);
+  return all.filter(o => o.type === 'Image'
+    && o.texture.key.startsWith('pce-court-svg')).length;
+})()`);
+check(upgraded === 12,
+  `the twelve portraits reach cards that were built before them (${upgraded})`);
+
 // And the hold'em table, which is every primitive at once: stacks, throws,
 // draw order and turning cards over.
 console.log('\nand the hold\'em table');

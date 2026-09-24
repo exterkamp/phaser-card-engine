@@ -204,6 +204,21 @@ describe('the source files on disk', () => {
   });
 });
 
+describe('the baked art', () => {
+  const ART_DIR = join(import.meta.dirname, '..', 'assets', 'cards', 'art');
+
+  // The courts were 84 WebP files and 4.1MB of the package. They are rendered
+  // now, and the only thing that would quietly bring them back is somebody
+  // re-running the bake into this directory - at which point the package
+  // ships both and nothing says which one a card is using.
+  it('keeps backs only, because a back has no SVG to be rendered from', () => {
+    for (const theme of DECK_THEMES) {
+      const files = readdirSync(join(ART_DIR, theme));
+      expect(files, theme).toEqual(['back.webp']);
+    }
+  });
+});
+
 describe('court ranks', () => {
   it('knows which ranks have a portrait', () => {
     expect(isCourtRank('K')).toBe(true);

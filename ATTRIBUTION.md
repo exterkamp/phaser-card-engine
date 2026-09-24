@@ -13,11 +13,11 @@ Wikimedia Commons:
 and the eleven siblings named to match. They are the source of every court in
 the package, unmodified apart from the colour substitution described below.
 
-`assets/cards/art/<theme>/{jack,queen,king}-{suit}.webp` are those same twelve,
-baked to bitmaps by web-nert's `tools/render-face-art.py`. Each of the seven
-themes is the same twelve figures recoloured, so a deck is a palette rather
-than a second set of drawings — which is why `renderCourts` can produce a
-palette that was never baked.
+They used to ship a second time as `assets/cards/art/<theme>/*.webp`, baked by
+web-nert's `tools/render-face-art.py` — 84 files, one set per theme. Those are
+gone. Each of the seven themes was the same twelve figures recoloured, so a
+deck is a palette rather than a second set of drawings, and the palettes are
+now the only thing kept.
 
 CC0 is a public domain dedication: no attribution is required, no licence
 notice has to ship with a built game, and commercial use and modification are

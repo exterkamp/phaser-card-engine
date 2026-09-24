@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   CARD_HEIGHT,
   Card,
+  COURT_PALETTES,
   DEFAULT_DECK_THEME,
   DISPLAY_FONT,
   Hand,
@@ -16,7 +17,7 @@ import {
   stackPositions,
 } from 'phaser-card-engine';
 import {
-  CardSprite, boardRoot, createBoard, layHand, orderStack, preloadCardArt, throwCard,
+  CardSprite, boardRoot, createBoard, layHand, orderStack, preloadCardArt, renderCourts, throwCard,
 } from 'phaser-card-engine/phaser';
 
 // Dealing a hand of hold'em, as a program.
@@ -73,6 +74,10 @@ class HoldemTable extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#13463a');
+    // The courts are rendered, not loaded, so this is what puts portraits on
+    // the twelve. Not awaited: a card built before its portrait lands shows
+    // its pip and takes the portrait when it arrives.
+    void renderCourts(this, COURT_PALETTES[DEFAULT_DECK_THEME]);
     this.root = boardRoot(this);
     this.buildTable();
     this.newDeck();

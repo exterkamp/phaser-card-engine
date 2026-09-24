@@ -5,6 +5,7 @@ import {
   BASE_CARD_WIDTH,
   Card,
   CardFaceMetrics,
+  COURT_PALETTES,
   CourtPalette,
   DeckTheme,
   DEFAULT_BACK_COLOR,
@@ -15,6 +16,7 @@ import {
   colourOf,
   courtArtRect,
   deckThemePath,
+  isCourtRank,
 } from '../index.js';
 
 // A card, drawn.
@@ -34,12 +36,6 @@ export const STANDARD_SUIT_ART: Readonly<Record<string, string>> = {
   hearts: 'heart',
   diamonds: 'diamond',
   clubs: 'club',
-};
-
-const COURT_ART: Readonly<Record<string, string>> = {
-  J: 'jack',
-  Q: 'queen',
-  K: 'king',
 };
 
 const INK_RED = 0xcf2436;
@@ -82,25 +78,19 @@ export function preloadCardArt(scene: Phaser.Scene, options: CardArtOptions = {}
       scene.load.svg(suitKey(suit), `/cards/suits/${file}.svg`, { width: 200, height: 200 });
     }
   }
+  // Backs only. The courts are not bitmaps any more - they are rendered from
+  // their SVG sources by renderCourts, which cannot go through Phaser's
+  // loader because rasterising twelve of them is asynchronous in a way the
+  // loader has no way to wait for.
   for (const theme of themes) {
     if (!scene.textures.exists(backKey(theme))) {
       scene.load.image(backKey(theme), deckThemePath(theme, 'back.webp'));
-    }
-    for (const suit of Object.keys(suitArt)) {
-      for (const [rank, name] of Object.entries(COURT_ART)) {
-        const key = courtKey(theme, rank, suit);
-        if (!scene.textures.exists(key)) {
-          scene.load.image(key, deckThemePath(theme, `${name}-${suit}.webp`));
-        }
-      }
     }
   }
 }
 
 const suitKey = (suit: string) => `pce-suit-${suit}`;
 const backKey = (theme: DeckTheme) => `pce-back-${theme}`;
-const courtKey = (theme: DeckTheme, rank: string, suit: string) =>
-  `pce-court-${theme}-${rank}-${suit}`;
 
 /** The ink a suit is drawn in, unless the game says otherwise. */
 export function defaultInk(suit: string): number {
@@ -243,18 +233,26 @@ export class CardSprite extends Phaser.GameObjects.Container {
 
     // A court portrait, or one big suit. Both sit below the index, which is
     // added last so it draws over either.
-    const court = style.courtPalette
-      ? courtTextureKey(style.courtPalette, card.rank, card.suit, style.courtWidth ?? 480)
-      : courtKey(theme, card.rank, card.suit);
-    if (scene.textures.exists(court)) {
-      const art = scene.textures.get(court).getSourceImage();
-      const rect = courtArtRect(metrics, { width: art.width, height: art.height });
-      this.keep(scene.add.image(rect.x, rect.y, court).setDisplaySize(rect.width, rect.height));
+    //
+    // A theme is a palette, so a card that says nothing about colour still
+    // knows which portrait it wants; `courtPalette` is for a deck that is not
+    // one of the seven.
+    const palette = style.courtPalette ?? COURT_PALETTES[theme];
+    const court = isCourtRank(card.rank)
+      ? courtTextureKey(palette, card.rank, card.suit, style.courtWidth ?? 480)
+      : undefined;
+    if (court !== undefined && scene.textures.exists(court)) {
+      this.keep(this.portrait(scene, court));
     } else {
       this.keep(
         scene.add.image(0, metrics.pip.y, inkedSuit(scene, card.suit, ink))
           .setDisplaySize(metrics.pip.size, metrics.pip.size),
       );
+      // The portrait may simply not have finished rendering. A card built in
+      // the meantime shows its pip and takes the portrait when it lands,
+      // which is what lets a game create its deck and start its render of the
+      // courts in the same breath rather than having to order the two.
+      if (court !== undefined) this.awaitCourt(scene, court);
     }
 
     const rank = scene.add.text(metrics.index.x, metrics.index.y, card.rank, {
@@ -282,6 +280,39 @@ export class CardSprite extends Phaser.GameObjects.Container {
   private keep(item: Phaser.GameObjects.GameObject): void {
     this.faceParts.push(item);
     this.add(item);
+  }
+
+  /** The portrait, sized off the texture's own proportions. */
+  private portrait(scene: Phaser.Scene, key: string): Phaser.GameObjects.Image {
+    const art = scene.textures.get(key).getSourceImage();
+    const rect = courtArtRect(this.metrics, { width: art.width, height: art.height });
+    return scene.add.image(rect.x, rect.y, key).setDisplaySize(rect.width, rect.height);
+  }
+
+  /**
+   * Swap the pip for the portrait if that texture turns up later.
+   *
+   * Phaser has no per-key texture event, so this listens to all of them and
+   * checks - cheap, since the only textures added after a scene starts are
+   * these. The handler is taken off on the first match and on destroy, or a
+   * deck's worth of sprites would each keep a listener alive for a texture
+   * that may never come.
+   */
+  private awaitCourt(scene: Phaser.Scene, key: string): void {
+    const onAdd = (added: string) => {
+      if (added !== key) return;
+      scene.textures.off(Phaser.Textures.Events.ADD, onAdd);
+      const pip = this.faceParts.shift();
+      pip?.destroy();
+      const art = this.portrait(scene, key);
+      this.faceParts.unshift(art);
+      this.addAt(art, this.getIndex(this.back) + 1);
+      art.setVisible(this.card.faceUp);
+    };
+    scene.textures.on(Phaser.Textures.Events.ADD, onAdd);
+    this.once(Phaser.GameObjects.Events.DESTROY, () => {
+      scene.textures.off(Phaser.Textures.Events.ADD, onAdd);
+    });
   }
 
   /** Shows the face or the back. The card's own flag follows. */

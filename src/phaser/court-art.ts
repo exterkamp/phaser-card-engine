@@ -14,12 +14,12 @@ import {
 
 // Court portraits, rendered while the game is running.
 //
-// The alternative, and what both games do today, is to bake them: run the
-// twelve sources through a renderer at build time, once per palette, and ship
-// the WebP. That is faster to start and it is why the baked decks still
-// exist. What it cannot do is a palette nobody thought of - a game with its
-// own colours has to go and rebuild the art - and that is the whole of why
-// this is here.
+// The alternative, and what this package shipped until v0.13, is to bake
+// them: run the twelve sources through a renderer at build time, once per
+// palette, and ship the WebP. That is faster to start, and it was 84 files
+// and 4.1MB. What it cannot do is a palette nobody thought of - a game with
+// its own colours has to go and rebuild the art - and that is the whole of
+// why this replaced it.
 //
 // Measured, on the twelve at 480px, outside a scene: 280ms on a desktop and
 // about a second on a mid-range phone. Inside a running scene it is roughly
@@ -49,7 +49,8 @@ function sourceSvg(rank: CourtRank, suit: string): Promise<string> {
  *
  * Keyed by the palette as well as the size, so two decks can be on screen at
  * once - which a four-handed game where everyone picked their own deck needs,
- * and which a baked theme gets for free by being a different directory.
+ * and which the baked themes used to get for free by being separate
+ * directories.
  */
 export function courtTextureKey(
   palette: CourtPalette, rank: string, suit: string, width: number,
