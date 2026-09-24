@@ -661,9 +661,18 @@ bendPlane(mesh, { bow: 0.6, tilt: 0.6, turn: 0.3 }); // out of the plane
 
 The bow is a parabola along the card's **length** — `4t(1-t)`, deepest in the
 middle and flat where it is gripped, which is how a card held at both short
-edges actually flexes. `tilt` matters more than it sounds: a board is seen
-from overhead, and a card bowed towards an overhead camera mostly just gets
-shorter, so tipping it is what turns the curve into something you can see.
+edges actually flexes. A positive `bow` is **concave**: the middle dips away
+and the two short edges come up, which is the dish a packet makes under a
+thumb. Negative domes it the other way.
+
+Two things about the numbers. `tilt` matters more than it sounds — a board is
+seen from overhead, and a card bowed towards an overhead camera mostly just
+gets *shorter*, so tipping it is what turns the curve into something you can
+follow. And the bow wants to be shallow: much past half a card's length the
+curve overshoots the camera and the card renders folded in half rather than
+bowed. The default is 0.3, and `riffleShuffle` grades it down the packet so
+the card on top — the only one whose whole length you can see — is the one
+bent hardest.
 
 One snapshot serves the whole deck, because a pack being shuffled is face down
 and every card in it looks the same. The meshes are destroyed at the end and

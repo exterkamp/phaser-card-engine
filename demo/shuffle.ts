@@ -64,7 +64,8 @@ class Bench extends Phaser.Scene {
       if (!planes.length) return;
       const xs = planes.map((m) => m.x);
       const apart = Math.max(...xs) - Math.min(...xs);
-      const deep = Math.max(...planes[0].vertices.map((v) => Math.abs(v.z)));
+      const deep = Math.max(...planes.map(
+        (m) => Math.max(...m.vertices.map((v) => Math.abs(v.z)))));
       spread = Math.max(spread, apart);
       bow = Math.max(bow, deep);
       // A still of the widest, deepest moment, taken from in here. A

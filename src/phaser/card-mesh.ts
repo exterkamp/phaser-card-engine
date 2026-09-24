@@ -53,7 +53,13 @@ export function cardSnapshot(
 
 /** How far a card is bent, and how it is held. */
 export interface CardBend {
-  /** How deep the bow is, as a fraction of the card's length. 0 is flat. */
+  /**
+   * How deep the bow is, as a fraction of the card's length. 0 is flat.
+   *
+   * Positive is concave - the middle dips away from the camera and the two
+   * short edges come towards it, which is the shape a packet takes when a
+   * thumb presses down on the middle of it. Negative domes the other way.
+   */
   bow: number;
   /** Radians about the vertical - the packet's lean, left or right. */
   turn?: number;
@@ -85,12 +91,14 @@ export function cardPlane(scene: Phaser.Scene, key: string): Phaser.GameObjects.
   // too big.
   // One cell across and many down: a riffled card is held at its short edges
   // and bowed along its length, so that is the axis that needs the vertices.
+  // Fourteen of them, because the curve has to read as a curve down the whole
+  // card rather than as three flat panels.
   const plane = scene.add.plane(0, 0, key, undefined, 1, SEGMENTS, false);
   plane.hideCCW = false;
   return plane;
 }
 
-const SEGMENTS = 8;
+const SEGMENTS = 14;
 
 /**
  * Bows a plane, by pushing its vertices out of their own plane.
@@ -112,7 +120,10 @@ export function bendPlane(plane: Phaser.GameObjects.Mesh, bend: CardBend): void 
     high = Math.max(high, vertex.y);
   }
   const span = high - low || 1;
-  const depth = bend.bow * span;
+  // Negative z towards the camera, so a positive bow dips the middle away
+  // and lifts the ends - the dish a packet makes under the thumb, rather
+  // than a dome bulging out of the table.
+  const depth = -bend.bow * span;
   for (const vertex of vertices) {
     const along = (vertex.y - low) / span;
     vertex.z = depth * 4 * along * (1 - along);

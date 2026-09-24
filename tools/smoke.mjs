@@ -304,7 +304,11 @@ if (!await until(`${bench}.busy === false`, 60000)) {
 const bent = JSON.parse(await evaluate(`JSON.stringify(${bench}.seen)`));
 check(bent.meshes === 52, `every card is bent, not just some (${bent.meshes})`);
 check(bent.spread > 120, `the two packets part (${bent.spread}px)`);
-check(bent.bow > 0.3, `and both of them bow (${bent.bow})`);
+// Bracketed, because too much bend is as wrong as none. Past about half a
+// card's length the curve overshoots the camera and the card renders folded
+// in half rather than bowed - which looked like a crease down every card.
+check(bent.bow > 0.12 && bent.bow < 0.45,
+  `and they bow without folding over (${bent.bow})`);
 // And put away again: a mesh left behind is a card drawn twice.
 const after = await evaluate(`${bench}.children.list
   .filter(o => o.type === 'Mesh' || o.type === 'Plane').length`);

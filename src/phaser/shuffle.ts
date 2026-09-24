@@ -37,7 +37,11 @@ export interface RiffleOptions {
   stagger?: number;
   /** How far a card lifts on its way over. Default 14. */
   lift?: number;
-  /** How deep the packets bow, as a fraction of a card. Default 0.62. */
+  /**
+   * How deep the top of each packet bows, as a fraction of a card's length.
+   * Positive is concave - the middle dips away and the ends come up. Default
+   * 0.3. Much past that the curve overshoots the camera and folds.
+   */
   bow?: number;
   /** How far the cards are tipped away from the camera. Default 0.62 rad. */
   tilt?: number;
@@ -54,6 +58,13 @@ interface Bent {
   bow: number;
   turn: number;
   tilt: number;
+  /**
+   * How near the top of its packet this card is, 0 at the bottom and 1 at the
+   * top. The cards under the thumb take most of the bend and the ones at the
+   * bottom of the packet barely flex, so the card you can actually see - the
+   * one on top - is the one that shows the curve.
+   */
+  reach: number;
 }
 
 /**
@@ -81,7 +92,7 @@ export async function riffleShuffle(
   const duration = options.duration ?? 170;
   const stagger = options.stagger ?? 9;
   const lift = options.lift ?? 14;
-  const bow = options.bow ?? 0.62;
+  const bow = options.bow ?? 0.3;
   const tilt = options.tilt ?? 0.62;
   const turn = options.turn ?? 0.34;
   const random = options.random ?? Math.random;
@@ -94,7 +105,7 @@ export async function riffleShuffle(
     for (let round = 0; round < rounds; round++) {
       const split = riffleSplit(sprites.length, random);
       await cut(scene, bent, split, stack, scale, { spread, duration, tilt, turn });
-      await bowPackets(scene, bent, duration, bow);
+      await bowPackets(scene, bent, duration, bow, tilt);
       await spring(scene, bent, home, scale, { duration, stagger, lift });
     }
   } finally {
@@ -133,7 +144,7 @@ function lift$(
     mesh.setPosition(scale.x + sprite.x * scale.k, scale.y + sprite.y * scale.k);
     mesh.setDepth(RIFFLE_DEPTH + i);
     sprite.setVisible(false);
-    return { sprite, mesh, bow: 0, turn: 0, tilt: 0 };
+    return { sprite, mesh, bow: 0, turn: 0, tilt: 0, reach: 1 };
   });
 }
 
@@ -163,6 +174,11 @@ function cut(
   const packet = (indices: number[], side: number) => {
     indices.forEach((at, depth) => {
       const card = bent[at];
+      card.reach = indices.length > 1 ? depth / (indices.length - 1) : 1;
+      // Drawn in packet order while they are apart, so the card on top of
+      // each half is the one in front - which is the one bent hardest, and
+      // the only one whose whole length you can see.
+      card.mesh.setDepth(RIFFLE_DEPTH + depth);
       moves.push(bendTo(scene, card, {
         x: scale.x + (stack.x + side * how.spread) * scale.k,
         // A shallow lean down the packet, so it reads as a stack of cards in
@@ -184,9 +200,18 @@ function cut(
 /** The bow: both halves flexed under the thumbs, ready to go. */
 function bowPackets(
   scene: Phaser.Scene, bent: readonly Bent[], duration: number, bow: number,
+  tilt: number,
 ): Promise<void> {
   return Promise.all(bent.map((card) => bendTo(scene, card, {
-    bow,
+    // Tipped further as they flex. A bow seen flat-on is a change of outline
+    // and not much else; the angle is what turns it into a curve you can
+    // follow down the card.
+    tilt: tilt * 1.15,
+    // Least at the bottom of the packet, most at the top. A packet held in
+    // one hand is not bent evenly - the thumb is on the top of it - and the
+    // top card is the only one anybody can see the whole of. Not flat at the
+    // bottom either: a half-deck under a thumb is bent all the way through.
+    bow: bow * (0.55 + 0.45 * card.reach),
     duration: duration * 0.8,
     ease: 'Quad.easeOut',
   }))).then(() => undefined);
