@@ -8,17 +8,17 @@ import {
   DISPLAY_FONT,
   Hand,
   Stack,
-  buildDeck,
   cardRect,
   defineHand,
   defineStack,
   handBounds,
   handPositions,
-  shuffle,
+  shuffledDeck,
   stackPositions,
 } from 'phaser-card-engine';
 import {
-  CardSprite, boardRoot, createBoard, layHand, orderStack, preloadCardArt, renderCourts, throwCard,
+  CardSprite, boardRoot, createBoard, layHand, orderStack, preloadCardArt,
+  renderCourts, riffleShuffle, throwCard,
 } from 'phaser-card-engine/phaser';
 
 // Dealing a hand of hold'em, as a program.
@@ -51,6 +51,8 @@ const SEATS = [
 // corner, under seat 4, where the three piles stacked into one column of
 // face-down cards that read as a single enormous hand.
 const DECK = { x: 398, y: 180 };
+// The deck as a pile, which the riffle needs to know where to square up to.
+const DECK_STACK = defineStack({ id: 'deck', x: DECK.x, y: DECK.y });
 
 /** Hole cards per seat - what each hand is sized and labelled around. */
 const HOLE_CARDS = 2;
@@ -63,8 +65,8 @@ type Pile =
   | { kind: 'hand'; hand: Hand; cards: CardSprite[]; faceUp: boolean };
 
 class HoldemTable extends Phaser.Scene {
-  private root!: Phaser.GameObjects.Container;
-  private deck: CardSprite[] = [];
+  root!: Phaser.GameObjects.Container;
+  deck: CardSprite[] = [];
   private piles = new Map<string, Pile>();
   private speed = 1;
   private dealing = false;
@@ -161,7 +163,7 @@ class HoldemTable extends Phaser.Scene {
     }
     for (const card of this.deck) card.destroy();
 
-    this.deck = shuffle(buildDeck()).map((card: Card, i) => {
+    this.deck = shuffledDeck().map((card: Card, i) => {
       // Face down in the dealer's hands, like any deck.
       const sprite = new CardSprite(this, { ...card, faceUp: false });
       sprite.setPosition(DECK.x, DECK.y);
@@ -244,7 +246,15 @@ class HoldemTable extends Phaser.Scene {
 
     this.newDeck();
     this.note('Shuffling.');
-    await this.pause(200);
+    // The deck is already in its order - shuffledDeck did that. This is the
+    // riffle that arrives at it, worked backwards from the deck it has to
+    // produce, so the card that comes off the top afterwards is the card the
+    // shuffle put there.
+    await riffleShuffle(this, this.root, this.deck, DECK_STACK, {
+      rounds: 2,
+      duration: 170 * this.speed,
+      stagger: 9 * this.speed,
+    });
 
     this.note('Hole cards: one at a time, twice round the table.');
     for (let round = 0; round < 2; round++) {
@@ -285,6 +295,12 @@ const game = createBoard({
 });
 
 (window as unknown as { __game: Phaser.Game }).__game = game;
+
+// A handle on the riffle for the smoke checks, which need to watch it happen
+// rather than only see the deck afterwards.
+(window as unknown as { __riffle: unknown }).__riffle = (
+  scene: HoldemTable, options: Record<string, unknown> = {},
+) => riffleShuffle(scene, scene.root, scene.deck, DECK_STACK, options);
 // The geometry, for the smoke checks: they ask where a hand *should* hold its
 // cards and compare that against where the sprites actually came to rest,
 // which is a question they cannot answer from the scene alone.

@@ -243,6 +243,43 @@ check(hand.settled === true,
 check(hand.faceUp.you && hand.faceUp.board && !hand.faceUp.west && !hand.faceUp.burn,
   'your cards and the board face up, everyone else-s face down');
 
+// The riffle. Watched from inside the page rather than sampled from here: a
+// round trip over the wire is tens of milliseconds and the whole shuffle is
+// under three seconds, so polling from out here reliably misses it - which it
+// did, and read as an animation that never ran.
+const riffle = JSON.parse(await evaluate(`(() => {
+  const s = ${table};
+  const before = s.deck.map(c => c.card.id).join();
+  const was = s.deck.length;
+  let widest = 0;
+  const watch = setInterval(() => {
+    const xs = s.deck.map(c => c.x);
+    widest = Math.max(widest, Math.max(...xs) - Math.min(...xs));
+  }, 25);
+  return window.__riffle(s, { rounds: 1, duration: 260, stagger: 6 }).then(() => {
+    clearInterval(watch);
+    const xs = s.deck.map(c => c.x);
+    return JSON.stringify({
+      widest: Math.round(widest),
+      squared: Math.round(Math.max(...xs) - Math.min(...xs)),
+      kept: s.deck.map(c => c.card.id).join() === before,
+      count: s.deck.length,
+      was,
+    });
+  });
+})()`));
+check(riffle.widest > 80,
+  `the deck parts into two packets (${riffle.widest} units apart)`);
+check(riffle.squared === 0, `and squares up again (${riffle.squared} units of spread)`);
+// The one that matters. The shuffle already happened in the data; this is an
+// animation of it, and an animation that reordered the deck would leave the
+// card on top not being the card that gets dealt first.
+check(riffle.kept === true, 'and leaves the deck in the order it was already in');
+// Whatever is left of the deck by this point in the deal - the riffle does
+// not care how many, and must not lose any.
+check(riffle.count === riffle.was,
+  `with every card still in it (${riffle.count} of ${riffle.was})`);
+
 // And the hands, where a fan facing across the table straddles the wrap at
 // 180 degrees. Cards already in a hand must take the short way to their new
 // places when another arrives - the naive tween spins them a full turn to

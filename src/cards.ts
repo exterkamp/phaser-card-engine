@@ -1,3 +1,4 @@
+import { shuffle } from './shuffle.js';
 // What a card is, before anybody decides what game is being played with it.
 //
 // The vocabulary two games already agreed on without meaning to: web-nert and
@@ -272,6 +273,22 @@ export function buildDeck<T extends Card<string>>(
     return faces.map((face) => ({ ...face, id: `${face.suit}-${face.rank}`, faceUp: false }));
   }
   return faces.map(make);
+}
+
+/**
+ * A shuffled deck, which is what a game actually wants.
+ *
+ * `shuffle(buildDeck(), random)` is written once per game that will ever be
+ * written - twelve times over in web-solitaire alone. The random is the
+ * argument that matters: pass `Math.random` and get a deal, pass `seeded(n)`
+ * and get the same deal every time, which is how a game that went wrong is
+ * played again.
+ *
+ * A game with suits of its own composes the two itself - `shuffle(buildDeck(
+ * make), random)` - rather than this growing an overload for it.
+ */
+export function shuffledDeck(random: () => number = Math.random): Card[] {
+  return shuffle(buildDeck(), random);
 }
 
 /**

@@ -36,6 +36,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colorOf`, `isRed`, `isBlack`, `sameColor`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColor`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
+| `riffle.ts` | `riffleSplit` — which packet each card of a finished deck fell from, so an animation can arrive at an order rather than invent one |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colors and the guards that keep a bad value out of storage |
 | `ink.ts` | `defaultInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
 | `assets.ts` | `cardAssetBase`, `setCardAssetBase` — where the card art is served from, for a site that is not at the root of a host |
@@ -617,6 +618,31 @@ and obvious if you zoom, and it is not reproduced here.
 work with no SVG stage to render from, so there is nothing for a palette to
 recolor. What it has instead is transparency — it is ink on nothing, and the
 color behind it is `BACK_COLORS`.
+
+## Shuffling, and watching it happen
+
+```ts
+const deck = shuffledDeck(random);                 // the shuffle
+await riffleShuffle(this, root, sprites, stack);   // the animation of it
+```
+
+`shuffledDeck` is `shuffle(buildDeck(), random)`, which is written once per
+game that will ever be written — twelve times over in web-solitaire alone.
+Pass `seeded(n)` instead of `Math.random` and the same deal comes back, which
+is how a hand that went wrong gets played again.
+
+`riffleShuffle` is cosmetic from end to end, and the care is in that. The deck
+is already in its order before it runs, so `riffleSplit` works **backwards**
+from the finished deck to a pair of packets and a drop order that would have
+produced it — by the Gilbert-Shannon-Reeds model, where with L cards in one
+hand and R in the other the next to fall comes from the left with probability
+L/(L+R). That is what gives the runs of one to three that read as shuffling;
+strict alternation is a faro and looks like a zip.
+
+An animation that made up its own interleaving would land the deck somewhere
+other than where the game had put it, and the lie shows: the card on top would
+not be the card that gets dealt first. `/holdem.html` riffles twice before
+every deal.
 
 ## Throwing cards
 

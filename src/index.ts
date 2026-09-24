@@ -16,6 +16,7 @@ export * from './stack.js';
 export * from './hand.js';
 export * from './card-face.js';
 export * from './shuffle.js';
+export * from './riffle.js';
 export * from './deck-theme.js';
 export * from './court.js';
 export * from './ink.js';
