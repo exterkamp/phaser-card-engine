@@ -19,6 +19,12 @@ export interface Point {
   y: number;
 }
 
+/** A place in a pile: where the card goes, and how far it is turned. */
+export interface Place extends Point {
+  /** Degrees. Zero unless the stack is messy. */
+  angle: number;
+}
+
 /** A rectangle by its top-left corner, which is what overlap maths wants. */
 export interface Rect extends Point {
   width: number;
@@ -85,12 +91,27 @@ export interface Stack {
   readonly maxSpread: number;
   /** Which end of the pile is drawn over the rest. See StackOrder. */
   readonly order: StackOrder;
+  /**
+   * How far a card may be turned where it lands, in degrees either way.
+   *
+   * Zero is a squared pile, which is what a pile dealt by hand looks like and
+   * what everything here did before this existed. Anything above it is a pile
+   * that was *thrown* at: nertz players do not place cards on the foundations
+   * in the middle, they pitch them, and a foundation at the end of a hand is
+   * a fan of near-misses rather than a neat stack. Two or three degrees is
+   * plenty - it reads as thrown at five and as a mess at ten.
+   *
+   * The turn is worked out from the card's place in the pile rather than
+   * rolled, so a pile looks the same every time it is drawn. A pile that
+   * shuffled its own angles on every render would shimmer.
+   */
+  readonly messy: number;
 }
 
 export function defineStack(
   spec: Pick<Stack, 'id' | 'x' | 'y'> & Partial<Stack>,
 ): Stack {
-  return { fan: 'none', step: 0, maxSpread: 0, order: 'last-on-top', ...spec };
+  return { fan: 'none', step: 0, maxSpread: 0, messy: 0, order: 'last-on-top', ...spec };
 }
 
 /**
@@ -151,11 +172,35 @@ export function stackOffsets(stack: Stack, gaps: readonly number[]): number[] {
  * without it the stack's own step is used for every card, which is what a
  * squared pile or an evenly fanned one wants.
  */
+/**
+ * How far the card at `index` is turned on this pile.
+ *
+ * Settled rather than rolled: the same pile and the same place always give
+ * the same angle, so a board that redraws a pile - which this one does on
+ * every move - does not reshuffle the way it looks. Mixing the stack's own id
+ * in is what stops four foundations side by side being turned identically.
+ */
+export function stackAngle(stack: Pick<Stack, 'id' | 'messy'>, index: number): number {
+  if (!stack.messy) return 0;
+  return (scatter(stack.id, index) * 2 - 1) * stack.messy;
+}
+
+/** A number in 0..1 from a name and a place, and the same one every time. */
+function scatter(id: string, index: number): number {
+  let hash = 2166136261 ^ index;
+  for (let at = 0; at < id.length; at++) {
+    hash = Math.imul(hash ^ id.charCodeAt(at), 16777619);
+  }
+  hash = Math.imul(hash ^ (hash >>> 15), 2246822507);
+  hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
+}
+
 export function stackPositions(
   stack: Stack,
   count: number,
   gapBefore?: (index: number) => number,
-): Point[] {
+): Place[] {
   if (count <= 0) return [];
   const step = stack.fan === 'none' ? 0 : stack.step;
   const gaps = Array.from({ length: Math.max(0, count - 1) }, (_, i) =>
@@ -163,11 +208,12 @@ export function stackPositions(
   );
 
   const along = sign(stack.fan);
-  return stackOffsets(stack, gaps).map((offset) =>
-    vertical(stack.fan)
+  return stackOffsets(stack, gaps).map((offset, index) => ({
+    ...(vertical(stack.fan)
       ? { x: stack.x, y: stack.y + offset * along }
-      : { x: stack.x + offset * along, y: stack.y },
-  );
+      : { x: stack.x + offset * along, y: stack.y }),
+    angle: stackAngle(stack, index),
+  }));
 }
 
 /** Where the next card to land on this stack would sit. */
@@ -175,7 +221,7 @@ export function nextPosition(
   stack: Stack,
   count: number,
   gapBefore?: (index: number) => number,
-): Point {
+): Place {
   const positions = stackPositions(stack, count + 1, gapBefore);
   return positions[positions.length - 1];
 }

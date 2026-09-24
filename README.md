@@ -33,7 +33,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
 | `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite`, `preloadCardArt`, `throwCard` and `dealCards`, behind `phaser-card-engine/phaser` |
 | `hand.ts` | `Hand` and `defineHand`, `handPositions`, `nextHandPlace`, `handBounds` — cards held in a fan rather than stacked |
-| `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
+| `stack.ts` | `Stack` and `defineStack`, `stackAngle`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colorOf`, `isRed`, `isBlack`, `sameColor`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColor`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `riffle.ts` | `riffleSplit` — which packet each card of a finished deck fell from, so an animation can arrive at an order rather than invent one |
@@ -160,6 +160,29 @@ stackPositions(column, 13);  // where all thirteen cards go
 nextPosition(column, 13);    // where a fourteenth would land
 stackUnder(cardRect(pointer), piles);   // which stack a dragged card is over
 ```
+
+### A pile that was thrown at
+
+```ts
+defineStack({ id: 'foundation-0', x: 240, y: 300, messy: 4 });
+```
+
+Zero is a squared pile — what everything here did before this existed, and
+what a pile dealt by hand looks like. Above it is a pile that was *pitched*
+at: nertz players do not place cards on the foundations in the middle of the
+table, and a foundation at the end of a hand is a fan of near-misses rather
+than a neat stack. Two or three degrees reads as thrown; ten reads as broken.
+
+`stackPositions` returns an `angle` with every place, so a card knows how far
+it is turned as well as where it goes — and `throwCard` already settles on its
+landing's angle, which means throwing at a messy pile lands the card crooked
+without anyone asking it to.
+
+**The angle is settled, not rolled.** It comes from the card's place in the
+pile mixed with the stack's own id, so the same pile drawn twice looks the
+same both times — a board redraws a pile on every move, and one that rolled
+fresh angles each time would shimmer. The id is in there so that four
+foundations side by side are not all turned identically.
 
 ### Which end is on top
 

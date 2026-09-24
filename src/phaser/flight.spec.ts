@@ -37,13 +37,13 @@ describe('where a throw lands', () => {
 
   it('lands on an empty stack-s anchor', () => {
     const stack = defineStack({ id: 's', x: 100, y: 50, fan: 'down', step: 20 });
-    expect(throwLanding(stack)).toEqual({ x: 100, y: 50 });
+    expect(throwLanding(stack)).toEqual({ x: 100, y: 50, angle: 0 });
   });
 
   // Throwing at a pile of six means landing on top of the six, not under them.
   it('lands where a stack-s next card goes', () => {
     const stack = defineStack({ id: 's', x: 100, y: 50, fan: 'down', step: 20 });
-    expect(throwLanding({ stack, count: 3 })).toEqual({ x: 100, y: 110 });
+    expect(throwLanding({ stack, count: 3 })).toEqual({ x: 100, y: 110, angle: 0 });
   });
 
   it('respects a squeezed pile-s own gaps', () => {

@@ -107,7 +107,7 @@ export function handPositions(hand: Hand, count: number): HandPlace[] {
 function asStack(hand: Hand) {
   return {
     id: hand.id, x: 0, y: 0, fan: 'none' as const, step: hand.step,
-    maxSpread: hand.maxSpread, order: hand.order,
+    maxSpread: hand.maxSpread, messy: 0, order: hand.order,
   };
 }
 

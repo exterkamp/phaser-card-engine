@@ -54,10 +54,15 @@ class ThrowDemo extends Phaser.Scene {
     void renderCourts(this, COURT_PALETTES[DEFAULT_DECK_THEME]);
     this.root = boardRoot(this);
 
-    // Three piles to throw at, and a deck in the corner to throw from.
+    // Four piles to throw at, and a deck in the corner to throw from.
     this.piles = [
       defineStack({ id: 'fan', x: 120, y: 180, fan: 'down', step: 26, maxSpread: 150 }),
       defineStack({ id: 'squared', x: 300, y: 180 }),
+      // What a pile that was thrown at looks like. Nertz players do not place
+      // cards on the foundations in the middle of the table, they pitch them,
+      // and a foundation at the end of a hand is a fan of near-misses. Four
+      // degrees either way is enough to read as thrown rather than as broken.
+      defineStack({ id: 'messy', x: 400, y: 420, messy: 4 }),
       defineStack({ id: 'row', x: 110, y: 420, fan: 'right', step: 24, maxSpread: 200 }),
     ].map((stack) => ({ stack, cards: [] }));
 
@@ -196,7 +201,12 @@ class ThrowDemo extends Phaser.Scene {
 
   private layOut(pile: Pile): void {
     const at = stackPositions(pile.stack, pile.cards.length);
-    pile.cards.forEach((card, i) => card.setPosition(at[i].x, at[i].y));
+    // The angle as well as the place. A messy pile that squared itself up
+    // every time it was re-laid would undo the throw that made it messy.
+    pile.cards.forEach((card, i) => {
+      card.setPosition(at[i].x, at[i].y);
+      card.setAngle(at[i].angle);
+    });
     orderStack(this.root, pile.cards, pile.stack, this.piles.indexOf(pile) * 100);
   }
 

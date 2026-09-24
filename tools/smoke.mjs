@@ -175,6 +175,57 @@ const upgraded = await evaluate(`(() => {
 check(upgraded === 12,
   `the twelve portraits reach cards that were built before them (${upgraded})`);
 
+// A messy pile: one that was thrown at rather than dealt onto. The angles
+// have to vary, stay inside what the stack allowed, and be the same every
+// time it is drawn - a pile that rolled fresh angles on each redraw would
+// shimmer, and a board redraws a pile on every move.
+console.log('\nand a pile thrown at');
+await send('Page.navigate', { url: `${root}/throws.html` });
+if (!await until('!!window.__game && Object.values(window.__game.scene.keys)[0]?.piles?.length', 30000)) {
+  console.log('  FAIL the throwing page never appeared');
+  done(1);
+}
+await sleep(1000);
+const throwing = 'Object.values(window.__game.scene.keys)[0]';
+for (const pile of ['messy', 'squared']) {
+  for (let i = 0; i < 8; i++) {
+    await evaluate(`${throwing}.throwAtPile(${throwing}.piles.find(p => p.stack.id === '${pile}'))`);
+    await sleep(320);
+  }
+}
+await sleep(800);
+const tilted = JSON.parse(await evaluate(`(() => {
+  const s = ${throwing};
+  const at = (id) => {
+    const pile = s.piles.find(p => p.stack.id === id);
+    const angles = pile.cards.map(c => c.angle);
+    return {
+      allowed: pile.stack.messy,
+      widest: Math.max(...angles.map(Math.abs)),
+      turned: angles.filter(a => Math.abs(a) > 0.2).length,
+      cards: angles.length,
+    };
+  };
+  return JSON.stringify({ messy: at('messy'), squared: at('squared') });
+})()`));
+check(tilted.squared.widest === 0,
+  `a pile that was dealt onto stays square (${tilted.squared.widest} degrees)`);
+check(tilted.messy.turned === tilted.messy.cards,
+  `every card on a messy pile is turned (${tilted.messy.turned}/${tilted.messy.cards})`);
+check(tilted.messy.widest <= tilted.messy.allowed,
+  `and none of them past what it allows (${tilted.messy.widest.toFixed(1)} of ${tilted.messy.allowed})`);
+
+// And it settles rather than rolls: laying the pile out again must not move
+// anything.
+const settled = await evaluate(`(() => {
+  const s = ${throwing};
+  const pile = s.piles.find(p => p.stack.id === 'messy');
+  const before = pile.cards.map(c => c.angle).join();
+  s.layOut(pile);
+  return pile.cards.map(c => c.angle).join() === before;
+})()`);
+check(settled === true, 'and drawing it again gives the same angles');
+
 // And the hold'em table, which is every primitive at once: stacks, throws,
 // draw order and turning cards over.
 console.log('\nand the hold\'em table');

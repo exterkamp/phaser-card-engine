@@ -7,6 +7,7 @@ import {
   overlap,
   readableOrder,
   stackBounds,
+  stackAngle,
   stackDepths,
   stackOffsets,
   stackPositions,
@@ -36,9 +37,9 @@ describe('a squared stack', () => {
 describe('a fanned stack', () => {
   it('steps each card down from the one before', () => {
     expect(stackPositions(column, 3)).toEqual([
-      { x: 100, y: 100 },
-      { x: 100, y: 130 },
-      { x: 100, y: 160 },
+      { x: 100, y: 100, angle: 0 },
+      { x: 100, y: 130, angle: 0 },
+      { x: 100, y: 160, angle: 0 },
     ]);
   });
 
@@ -50,7 +51,7 @@ describe('a fanned stack', () => {
   it('runs along x when it fans sideways', () => {
     const right = defineStack({ id: 'r', x: 0, y: 5, fan: 'right', step: 12 });
     expect(stackPositions(right, 3)).toEqual([
-      { x: 0, y: 5 }, { x: 12, y: 5 }, { x: 24, y: 5 },
+      { x: 0, y: 5, angle: 0 }, { x: 12, y: 5, angle: 0 }, { x: 24, y: 5, angle: 0 },
     ]);
     const left = defineStack({ id: 'l', x: 0, y: 5, fan: 'left', step: 12 });
     expect(stackPositions(left, 2).map((p) => p.x)).toEqual([0, -12]);
@@ -97,13 +98,63 @@ describe('squeezing', () => {
   });
 });
 
+describe('a messy pile', () => {
+  const neat = defineStack({ id: 'foundation-0', x: 100, y: 100 });
+  const thrown = defineStack({ id: 'foundation-0', x: 100, y: 100, messy: 4 });
+
+  // What every pile did before this existed, and what a pile dealt by hand
+  // still looks like.
+  it('is square by default', () => {
+    expect(neat.messy).toBe(0);
+    expect(stackPositions(neat, 5).every((place) => place.angle === 0)).toBe(true);
+  });
+
+  it('turns each card, and never past what it was allowed', () => {
+    const places = stackPositions(thrown, 52);
+    expect(places.every((place) => Math.abs(place.angle) <= 4)).toBe(true);
+    expect(places.some((place) => place.angle !== 0)).toBe(true);
+  });
+
+  it('turns them both ways', () => {
+    const angles = stackPositions(thrown, 40).map((place) => place.angle);
+    expect(angles.some((angle) => angle > 0.5)).toBe(true);
+    expect(angles.some((angle) => angle < -0.5)).toBe(true);
+  });
+
+  // The important one. A board redraws a pile on every move, and a pile that
+  // rolled its angles fresh each time would shimmer.
+  it('gives the same pile the same angles every time', () => {
+    expect(stackPositions(thrown, 12).map((p) => p.angle))
+      .toEqual(stackPositions(thrown, 12).map((p) => p.angle));
+    expect(stackAngle(thrown, 7)).toBe(stackAngle(thrown, 7));
+  });
+
+  // Four foundations in a row, turned identically, would read as a pattern
+  // rather than as four piles somebody threw at.
+  it('does not turn two piles the same way', () => {
+    const other = defineStack({ id: 'foundation-1', x: 100, y: 100, messy: 4 });
+    expect(stackPositions(thrown, 10).map((p) => p.angle))
+      .not.toEqual(stackPositions(other, 10).map((p) => p.angle));
+  });
+
+  it('scales with the allowance', () => {
+    const wild = defineStack({ id: 'foundation-0', x: 100, y: 100, messy: 8 });
+    expect(stackAngle(wild, 3)).toBeCloseTo(stackAngle(thrown, 3) * 2, 6);
+  });
+
+  it('leaves where the cards sit alone', () => {
+    expect(stackPositions(thrown, 3).map((p) => [p.x, p.y]))
+      .toEqual(stackPositions(neat, 3).map((p) => [p.x, p.y]));
+  });
+});
+
 describe('where the next card lands', () => {
   it('is the anchor for an empty stack', () => {
-    expect(nextPosition(column, 0)).toEqual({ x: 100, y: 100 });
+    expect(nextPosition(column, 0)).toEqual({ x: 100, y: 100, angle: 0 });
   });
 
   it('is one step past the last card', () => {
-    expect(nextPosition(column, 2)).toEqual({ x: 100, y: 160 });
+    expect(nextPosition(column, 2)).toEqual({ x: 100, y: 160, angle: 0 });
   });
 
   // A squeezed stack moves every card when one more arrives, so "where the
@@ -224,7 +275,7 @@ describe('which end of the stack is on top', () => {
     });
     const at = stackPositions(stack, 3);
     const front = topCardIndex(stack, 3)!;
-    expect(at[front]).toEqual({ x: 0, y: 100 });
+    expect(at[front]).toEqual({ x: 0, y: 100, angle: 0 });
     expect(Math.max(...at.map((p) => p.y))).toBe(at[front].y);
   });
 });
