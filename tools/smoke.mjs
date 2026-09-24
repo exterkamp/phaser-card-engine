@@ -309,6 +309,13 @@ check(bent.spread > 120, `the two packets part (${bent.spread}px)`);
 // in half rather than bowed - which looked like a crease down every card.
 check(bent.bow > 0.12 && bent.bow < 0.45,
   `and they bow without folding over (${bent.bow})`);
+// The pile must stay behind the packets it is being dropped into. It grows
+// past fifty cards and a packet is only twenty-six deep, so if the two share
+// a depth range the pile climbs in front about halfway through the drop -
+// which it did, and which nothing else here would notice.
+check(bent.over === 0,
+  `the pile never draws over a card still in hand (${bent.over} frames)`);
+
 // And put away again: a mesh left behind is a card drawn twice.
 const after = await evaluate(`${bench}.children.list
   .filter(o => o.type === 'Mesh' || o.type === 'Plane').length`);

@@ -674,6 +674,13 @@ bowed. The default is 0.3, and `riffleShuffle` grades it down the packet so
 the card on top — the only one whose whole length you can see — is the one
 bent hardest.
 
+A riffle draws in **two depth bands**, `RIFFLE_DEPTH` for the pile and
+`RIFFLE_HAND_DEPTH` above it for anything still in a hand, and a card moves
+from the second to the first at the instant it lands. One band would not do:
+the pile grows past fifty cards and a packet is only twenty-six deep, so
+sharing a range puts the pile in front of the packets about halfway through
+the drop.
+
 One snapshot serves the whole deck, because a pack being shuffled is face down
 and every card in it looks the same. The meshes are destroyed at the end and
 the sprites come back; nothing outside `phaser/shuffle.ts` ever sees one.

@@ -4,7 +4,8 @@ import {
   CARD_WIDTH, Card, DEFAULT_DECK_THEME, Stack, defineStack, shuffledDeck,
 } from 'phaser-card-engine';
 import {
-  CardSprite, boardRoot, createBoard, orderStack, preloadCardArt, riffleShuffle,
+  CardSprite, RIFFLE_HAND_DEPTH, boardPixelRatio, boardRoot, createBoard,
+  orderStack, preloadCardArt, riffleShuffle,
 } from 'phaser-card-engine/phaser';
 
 // A riffle, on its own and slow enough to watch.
@@ -16,8 +17,9 @@ class Bench extends Phaser.Scene {
   root!: Phaser.GameObjects.Container;
   cards: CardSprite[] = [];
   busy = false;
-  seen = { meshes: 0, spread: 0, bow: 0 };
+  seen = { meshes: 0, spread: 0, bow: 0, over: 0 };
   peak = '';
+  late = '';
 
   preload(): void {
     preloadCardArt(this, { themes: [DEFAULT_DECK_THEME] });
@@ -56,6 +58,8 @@ class Bench extends Phaser.Scene {
     let meshes = 0;
     let spread = 0;
     let bow = 0;
+    let over = 0;
+    const dpr = boardPixelRatio(this);
     const watch = setInterval(() => {
       const planes = this.children.list.filter(
         (o) => o.type === 'Mesh' || o.type === 'Plane',
@@ -68,6 +72,32 @@ class Bench extends Phaser.Scene {
         (m) => Math.max(...m.vertices.map((v) => Math.abs(v.z)))));
       spread = Math.max(spread, apart);
       bow = Math.max(bow, deep);
+
+      // A card that has landed must never draw over one still in a hand. The
+      // pile grows past fifty and a packet is only twenty-six deep, so if the
+      // two share a depth range the pile climbs in front of the packets about
+      // halfway through - which is exactly what it did.
+      // A card still in flight is already over the pile while it is on its
+      // way down, so position alone cannot tell it from one that has landed.
+      // The depth band can: it keeps its in-hand depth until it arrives.
+      const mid = DECK.x * dpr;
+      const landed = planes.filter(
+        (m) => Math.abs(m.x - mid) < 8 * dpr && m.depth < RIFFLE_HAND_DEPTH,
+      );
+      const inHand = planes.filter((m) => Math.abs(m.x - mid) > 30 * dpr);
+      if (landed.length && inHand.length) {
+        const highestLanded = Math.max(...landed.map((m) => m.depth));
+        const lowestInHand = Math.min(...inHand.map((m) => m.depth));
+        if (highestLanded > lowestInHand) over += 1;
+        // A still from late in the drop, when the pile is deep and there are
+        // still cards in hand - the moment the two can argue about which is
+        // in front.
+        if (!this.late && landed.length > planes.length * 0.55) {
+          this.game.renderer.snapshot((image) => {
+            this.late = (image as HTMLImageElement).src ?? '';
+          });
+        }
+      }
       // A still of the widest, deepest moment, taken from in here. A
       // screenshot driven from outside lands wherever the round trip puts it,
       // which for a two-second animation is usually after it.
@@ -83,11 +113,14 @@ class Bench extends Phaser.Scene {
       stagger: 11 * slow,
     });
     clearInterval(watch);
-    this.seen = { meshes, spread: Math.round(spread), bow: Number(bow.toFixed(2)) };
+    this.seen = {
+      meshes, spread: Math.round(spread), bow: Number(bow.toFixed(2)), over,
+    };
     const kept = this.cards.map((c) => c.card.id).join() === before;
     this.say(`${rounds} riffle${rounds > 1 ? 's' : ''} in `
       + `${Math.round(performance.now() - started)}ms — `
-      + `${this.seen.meshes} cards bent, parted ${this.seen.spread}px, bow ${this.seen.bow}. `
+      + `${this.seen.meshes} cards bent, parted ${this.seen.spread}px, bow ${this.seen.bow}`
+      + `${this.seen.over ? `, PILE OVER THE PACKETS ${this.seen.over}x` : ''}. `
       + `The deck is ${kept ? 'in the order it was already in' : 'REORDERED, which is a bug'}.`);
     this.busy = false;
   }

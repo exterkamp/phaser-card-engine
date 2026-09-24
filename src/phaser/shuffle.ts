@@ -156,8 +156,22 @@ function drop$(bent: readonly Bent[]): void {
   }
 }
 
-// Above the felt and the cards, for as long as the shuffle lasts.
-const RIFFLE_DEPTH = 10_000;
+/**
+ * Where a riffle draws: above the felt and the cards, for as long as it lasts.
+ *
+ * Exported because the two bands are the only thing keeping the pile behind
+ * the packets, and a check that wants to know whether they still are has to
+ * be able to tell one from the other.
+ */
+export const RIFFLE_DEPTH = 10_000;
+/**
+ * And above that again for a card still in a hand.
+ *
+ * A card that has landed takes its place in the pile by depth, and the pile
+ * grows past fifty - so without a band of its own, a packet of twenty-six
+ * ends up *underneath* the pile it is dropping onto, about halfway through.
+ */
+export const RIFFLE_HAND_DEPTH = RIFFLE_DEPTH + 1_000;
 
 // --- the three movements --------------------------------------------------
 
@@ -177,8 +191,9 @@ function cut(
       card.reach = indices.length > 1 ? depth / (indices.length - 1) : 1;
       // Drawn in packet order while they are apart, so the card on top of
       // each half is the one in front - which is the one bent hardest, and
-      // the only one whose whole length you can see.
-      card.mesh.setDepth(RIFFLE_DEPTH + depth);
+      // the only one whose whole length you can see. In the in-hand band, so
+      // the whole packet stays over the pile until its cards land.
+      card.mesh.setDepth(RIFFLE_HAND_DEPTH + depth);
       moves.push(bendTo(scene, card, {
         x: scale.x + (stack.x + side * how.spread) * scale.k,
         // A shallow lean down the packet, so it reads as a stack of cards in
@@ -236,6 +251,8 @@ function spring(
     ease: 'Quad.easeIn',
     // The lift is taken back on arrival rather than tweened out, so the card
     // drops the last few units instead of easing into the pile.
+    // Out of the hand and into the pile, in one step: the card leaves the
+    // band that draws over everything and takes its place in the pile.
     onComplete: () => {
       card.mesh.y = scale.y + home[at].y * scale.k;
       card.mesh.setDepth(RIFFLE_DEPTH + at);
