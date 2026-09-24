@@ -19,11 +19,32 @@ import Phaser from 'phaser';
 // is one texture between them.
 
 /**
+ * What a card looks like, as a string.
+ *
+ * A snapshot is a cache, and a cache is only as good as its key. The riffle
+ * takes one picture and hands it to all fifty-two, so the key has to cover
+ * everything that changes what a card looks like - and the only thing that
+ * knows what that is, is the card.
+ *
+ * Keyed on the size alone, it was wrong the moment a game had two decks: the
+ * first pack shuffled at a given width kept its back for every pack after it,
+ * so changing deck and shuffling dealt one deck and riffled another.
+ */
+export interface CardLook {
+  readonly look: string;
+}
+
+/** A card's own answer, or its size if it has none to give. */
+export function lookOf(sprite: Phaser.GameObjects.Container): string {
+  return (sprite as Partial<CardLook>).look ?? `${Math.round(sprite.width)}`;
+}
+
+/**
  * A card's pixels, as a texture.
  *
  * Keyed by the caller, because what makes two cards look alike is the
  * caller's business - for a shuffle it is that they are all face down, and
- * one snapshot serves the deck.
+ * one snapshot serves the deck. `lookOf` is what to build that key from.
  *
  * Rasterised at the board's pixel ratio, like everything else here, or the
  * mesh would be drawn from a texture at a third of the density of the card

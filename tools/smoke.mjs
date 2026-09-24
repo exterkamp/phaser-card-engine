@@ -817,6 +817,26 @@ check(dealt === true, 'opening the box hands over fifty-two cards');
 check(await until(`/Shuffled/.test(document.getElementById('note').textContent)`, 20000),
   'and they come out shuffled');
 
+// The riffle draws every card from one snapshot, which is a cache - and a
+// cache keyed on the card's size alone meant the first pack shuffled kept its
+// back for every pack after it. A game with two decks dealt one and riffled
+// the other, and nothing but changing deck and shuffling again would show it.
+const first = await evaluate(
+  `[...${boxScene}.textures.getTextureKeys()].filter(k => k.startsWith('pce-riffle')).length`);
+const was = await evaluate(`${boxScene}.theme`);
+await evaluate("document.getElementById('deck').click()");
+await sleep(1500);
+const now = await evaluate(`${boxScene}.theme`);
+await evaluate("document.getElementById('open').click()");
+await until(`/Shuffled/.test(document.getElementById('note').textContent)`, 30000);
+const snaps = JSON.parse(await evaluate(`JSON.stringify(
+  [...${boxScene}.textures.getTextureKeys()].filter(k => k.startsWith('pce-riffle')))`));
+check(was !== now, `a second deck to shuffle (${was} then ${now})`);
+check(snaps.length === first + 1,
+  `and it riffles its own back rather than the last deck's (${snaps.length} snapshots)`);
+check(snaps.some((k) => k.includes(now)) && snaps.some((k) => k.includes(was)),
+  `each deck keeping its own (${snaps.map((k) => k.split('-')[2]).join(', ')})`);
+
 // --- the three faces -------------------------------------------------------
 //
 // The thing a unit test cannot reach: whether a corner and the pips beside it

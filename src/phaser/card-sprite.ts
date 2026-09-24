@@ -279,6 +279,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   private readonly paper: number;
   private readonly edge: number;
   private readonly courtInk: number;
+  private readonly deckLook: string;
   private displayFace: boolean | undefined;
 
   // Generic in the suit, because a game that declares one with `defineSuits`
@@ -318,6 +319,11 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     this.paper = paper;
     this.edge = edge;
     this.courtInk = cssColor(palette.ink);
+    // Everything that changes what this card looks like, as a string - see
+    // `CardLook`. The size is in it because a snapshot is taken at a size,
+    // and the deck is in it because two decks do not look alike.
+    this.deckLook = `${theme}-${backColor.toString(16)}-${paper.toString(16)}`
+      + `-${edge.toString(16)}-${Math.round(width)}-${metrics.face}`;
 
     this.plate = scene.add.image(0, 0,
       cardBody(scene, metrics, true, backColor, dpr, paper, edge))
@@ -500,6 +506,17 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     this.once(Phaser.GameObjects.Events.DESTROY, () => {
       scene.textures.off(Phaser.Textures.Events.ADD, onAdd);
     });
+  }
+
+  /**
+   * What this card looks like, for anything caching a picture of it.
+   *
+   * The side it is showing is part of the answer: a pack being riffled face
+   * down and the same pack face up are two different pictures, and sharing a
+   * cache between them would show one of them the other's.
+   */
+  get look(): string {
+    return `${this.deckLook}-${this.shownFace ? 'up' : 'down'}`;
   }
 
   /** Shows the face or the back. The card's own flag follows. */

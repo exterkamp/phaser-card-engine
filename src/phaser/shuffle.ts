@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Stack, riffleSplit, stackPositions } from '../index.js';
 import { orderStack } from './board.js';
-import { bendPlane, cardPlane, cardSnapshot } from './card-mesh.js';
+import { bendPlane, cardPlane, cardSnapshot, lookOf } from './card-mesh.js';
 
 // Shuffling, as a thing you can watch.
 //
@@ -145,7 +145,12 @@ function lift$(
   return sprites.map((sprite, i) => {
     // One snapshot between them. A pack being shuffled is face down, so every
     // card in it looks the same and the texture is taken once.
-    const key = cardSnapshot(scene, sprite, `pce-riffle-${Math.round(sprite.width)}`, scale.k);
+    //
+    // Keyed on what the card looks like and not on how big it is. On the size
+    // alone, the first pack shuffled kept its back for every pack after it at
+    // that width - so a game with more than one deck dealt one and riffled
+    // another, and the only way to see it was to change deck and shuffle.
+    const key = cardSnapshot(scene, sprite, `pce-riffle-${lookOf(sprite)}`, scale.k);
     const mesh = cardPlane(scene, key);
     mesh.setPosition(scale.x + sprite.x * scale.k, scale.y + sprite.y * scale.k);
     mesh.setDepth(RIFFLE_DEPTH + i);
