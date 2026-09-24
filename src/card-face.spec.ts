@@ -266,9 +266,11 @@ describe('where a court goes', () => {
 
   // The panel has to start inboard of the corner, or the rank is printed on
   // the frame. How wide that corner really is depends on the text the browser
-  // lays out, so the exact clearance is a smoke check; what is worth pinning
-  // here is that the panel leaves room for a corner at all - one glyph and
-  // the suit under it, bounded generously by the index's own font size.
+  // lays out - the widest court rank is the Q, at about 0.75 of the font size
+  // - so the real clearance is measured in the smoke against all three court
+  // ranks. What is worth pinning here is that the panel leaves room for a
+  // corner at all: one glyph and the suit under it, bounded generously by the
+  // index's own font size.
   it('leaves the corners room beside the panel', () => {
     for (const face of ['standard', 'jumbo'] as const) {
       const metrics = cardFaceMetrics(60, face);

@@ -736,12 +736,12 @@ only the top of it, because the mobile face has one index and the whole bottom
 of the card to give one figure at twice the size. `standard` and `jumbo` take
 the whole thing and lay it in a ruled panel.
 
-The panel is 0.70 of the card's width, measured off a real card rather than
-chosen: on the one I had in front of me the panel runs from 0.147 to 0.845 of
-the width and the index column from 0.062 to 0.163, so the corner and the
-frame *just* touch. They are not meant to clear each other with room to spare,
-and a panel narrowed until they did came out visibly smaller than a printed
-one.
+The panel is 0.66 of the card's width on `standard` and 0.58 on `jumbo`,
+where a real card's is about 0.70. The difference is the index above it: a
+printed rank is roughly half the size of this one, so a real corner is a
+narrow enough column to sit beside a 0.70 panel and this one is not. The
+widest court rank is the Q — 0.75 of the font size in Archivo — and the frame
+has to start outside where that ends, with enough of a gap to see.
 
 `peek` moves with the face, and it is the number a fanned pile's step is
 chosen against - a narrow printed corner needs about half as much of a card

@@ -928,25 +928,46 @@ check(courts.mobile.wide === 1 && courts.standard.wide < 0.8,
 check(!courts.mobile.framed && courts.standard.framed && courts.jumbo.framed,
   'and only the framed ones are ruled');
 
-// The corner and the panel just touch on a printed card - measured off one -
-// so what is checked is that the rank is not printed *over* the frame.
-const corner = JSON.parse(await evaluate(`(() => {
+// The corner has to be clear of the panel, and clear by something you can
+// see. A real card's very nearly touch, which is what I sized this to first -
+// but "very nearly" on a printed card is a hairline, and here it came out as
+// a rank sitting on the rule.
+//
+// All three court ranks, not just the K. The widest is the Q, and a check
+// that only ever looks at one rank is a check that passes on the rank it
+// happens to have been written against.
+const corner = JSON.parse(await evaluate(`(async () => {
   const s = ${faces};
+  const ph = window.__pce;
+  await ph.renderCourts(s, ph.courtStart('press'), { cut: 'full' });
   const out = {};
   for (const face of ['standard', 'jumbo']) {
-    const card = s.cards.find(c => c.card.id === face + '-K');
-    const index = card.list.find(o => o.type === 'Text');
-    const frame = card.list.find(o => o.type === 'Rectangle');
-    // How far the corner reaches past the frame's edge, as a fraction of the
-    // card. A real one overlaps by about 0.016.
-    out[face] = +(((index.x + index.width) - (frame.x - frame.width / 2))
-      / card.metrics.width).toFixed(3);
+    let tightest = 99;
+    let worst = '';
+    for (const rank of ['J', 'Q', 'K']) {
+      const card = new ph.CardSprite(s,
+        { id: 'gap' + face + rank, rank, suit: 'spades', faceUp: true },
+        { width: 60, face, theme: 'press' });
+      card.setPosition(-900, -900);
+      const m = card.metrics;
+      const index = card.list.find(o => o.type === 'Text');
+      const suit = card.list.filter(o => o.type === 'Image')
+        .find(o => Math.abs(o.displayWidth - m.index.suitSize) < 0.3);
+      // The rank and the suit under it - whichever reaches furthest in.
+      const reach = Math.max(index.x + index.width,
+        suit ? suit.x + suit.displayWidth / 2 : -99);
+      const gap = (-m.width * m.court.panel / 2) - reach;
+      if (gap < tightest) { tightest = gap; worst = rank; }
+      card.destroy();
+    }
+    out[face] = { gap: +tightest.toFixed(2), rank: worst };
   }
   return JSON.stringify(out);
 })()`));
-check(corner.standard < 0.05 && corner.jumbo < 0.06,
-  `the rank sits beside the panel rather than on it `
-  + `(standard ${corner.standard}, jumbo ${corner.jumbo} of the card)`);
+check(corner.standard.gap > 0.5 && corner.jumbo.gap > 0.5,
+  `every court's corner is clear of its panel - tightest `
+  + `${corner.standard.rank} ${corner.standard.gap} on standard, `
+  + `${corner.jumbo.rank} ${corner.jumbo.gap} on jumbo (60-unit card)`);
 
 // In pixels, because this is the one that slipped through by eye. Drawn
 // behind the art, the only part of the rule that showed was whatever sliver
