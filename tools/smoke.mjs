@@ -99,7 +99,7 @@ await sleep(700);
 // answer for where each one actually goes.
 const tiles = JSON.parse(await evaluate(
   `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.href))`));
-check(tiles.length === 7, `the home screen lists seven demos (${tiles.length})`);
+check(tiles.length === 9, `the home screen lists nine demos (${tiles.length})`);
 let reachable = 0;
 let wayBack = 0;
 for (const href of tiles) {
@@ -735,6 +735,165 @@ await sleep(1600);
 const back = JSON.parse(await evaluate(shown));
 check(hex(back.deck.paper) === '#fdfdfd' && hex(back.deck.redInk) === '#cf2436',
   'reset puts the deck back');
+
+// --- the box ---------------------------------------------------------------
+//
+// A tuck box is the one object in this package with no flat fallback: it is a
+// Mesh, meshes are WebGL-only, and a mesh built from the wrong vertex order
+// does not throw - it draws a bow-tie. So what is checked here is the shape
+// itself, off the transformed vertices.
+await send('Page.navigate', { url: `${root}/box.html` });
+// Boolean, not the box itself. `Runtime.evaluate` with `returnByValue` has to
+// serialise what the expression returns, and a TuckBox holds Phaser meshes
+// that hold the scene that holds the box - so handing one back comes out as
+// nothing at all, and the wait times out on a page that is working perfectly.
+if (!await until('!!(window.__game && Object.values(window.__game.scene.keys)[0].box)')) {
+  console.log('  FAIL the box never appeared');
+  done(1);
+}
+await sleep(2500);
+const boxScene = 'Object.values(window.__game.scene.keys)[0]';
+
+const built = JSON.parse(await evaluate(`(() => {
+  const s = ${boxScene};
+  const meshes = s.children.list.filter(o => o.type === 'Mesh');
+  return JSON.stringify({
+    meshes: meshes.length,
+    verts: meshes.map(m => m.vertices.length),
+    // Six vertices a quad, and every quad's two triangles share an edge - so
+    // a mesh whose vertices got shuffled shows up as quads with no area.
+    //
+    // The full 3D cross product, not a projection of it. Measuring the area
+    // in one plane calls every horizontal panel degenerate - the base and the
+    // shut lid are both flat in y - and reports twelve failures on a box that
+    // is perfectly built.
+    degenerate: meshes.reduce((n, m) => {
+      for (let i = 0; i < m.vertices.length; i += 3) {
+        const [a, b, c] = [m.vertices[i], m.vertices[i+1], m.vertices[i+2]];
+        const u = { x: b.x-a.x, y: b.y-a.y, z: b.z-a.z };
+        const v = { x: c.x-a.x, y: c.y-a.y, z: c.z-a.z };
+        const area = Math.hypot(
+          u.y*v.z - u.z*v.y, u.z*v.x - u.x*v.z, u.x*v.y - u.y*v.x);
+        if (area < 1e-6) n++;
+      }
+      return n;
+    }, 0),
+  });
+})()`));
+check(built.meshes === 3, `a box is three meshes - lid, deck, body (${built.meshes})`);
+check(built.verts.every(v => v % 6 === 0) && built.verts[0] === 24,
+  `built from whole quads (${built.verts.join('/')} vertices)`);
+check(built.degenerate === 0, `and no triangle collapsed (${built.degenerate})`);
+
+// Opening it has to move the lid and nothing else, and the deck has to stay
+// put until the lid is out of its way.
+const lid = JSON.parse(await evaluate(`(() => {
+  const s = ${boxScene};
+  const at = (open) => {
+    s.box.open = open;
+    const lidMesh = s.children.list.filter(o => o.type === 'Mesh')[0];
+    const deck = s.children.list.filter(o => o.type === 'Mesh')[1];
+    return {
+      tip: Math.min(...lidMesh.vertices.map(v => v.y)),
+      rise: +deck.modelPosition.y.toFixed(2),
+    };
+  };
+  const shut = at(0); const half = at(0.5); const wide = at(1);
+  s.box.open = 0;
+  return JSON.stringify({ shut, half, wide });
+})()`));
+check(lid.wide.tip > lid.shut.tip,
+  `the lid swings up as it opens (${lid.shut.tip.toFixed(0)} -> ${lid.wide.tip.toFixed(0)})`);
+check(Math.abs(lid.half.rise - lid.shut.rise) < 0.01,
+  'and the deck does not move while the lid is still over it');
+check(lid.wide.rise > lid.shut.rise + 10,
+  `then the deck lifts out (${(lid.wide.rise - lid.shut.rise).toFixed(0)} units)`);
+
+// And the whole sequence, which is the demo: turn to face, open, hand over
+// fifty-two real cards, riffle them.
+await evaluate("document.getElementById('open').click()");
+const dealt = await until(`${boxScene}.cards.length === 52`, 30000);
+check(dealt === true, 'opening the box hands over fifty-two cards');
+check(await until(`/Shuffled/.test(document.getElementById('note').textContent)`, 20000),
+  'and they come out shuffled');
+
+// --- the three faces -------------------------------------------------------
+//
+// The thing a unit test cannot reach: whether a corner and the pips beside it
+// actually stay off each other, which depends on how wide the rendered text
+// turns out to be.
+await send('Page.navigate', { url: `${root}/faces.html` });
+if (!await until('!!(window.__game && Object.values(window.__game.scene.keys)[0].cards?.length)')) {
+  console.log('  FAIL the faces never appeared');
+  done(1);
+}
+await sleep(2500);
+const faces = 'Object.values(window.__game.scene.keys)[0]';
+
+const drawn = JSON.parse(await evaluate(`(() => {
+  const s = ${faces};
+  const of = (face, rank) => s.cards.find(c => c.card.id === face + '-' + rank);
+  // The suits a card actually counts out, told from the two in its corners
+  // and from the body and back underneath. Everything in a CardSprite's list
+  // is an Image, so size alone is not enough: on the jumbo face the corner
+  // suit and the pips happen to be drawn at the same size, and counting by
+  // size alone made a seven into a nine. Inside the field as well.
+  const suits = (card) => {
+    const field = card.metrics.pips;
+    const want = field ? field.size : card.metrics.pip.size;
+    return card.list.filter(o => o.type === 'Image'
+      && Math.abs(o.displayWidth - want) < 0.5
+      && (!field || Math.abs(o.x) <= field.right + want / 2 + 0.1));
+  };
+  return JSON.stringify({
+    indices: ['mobile', 'standard', 'jumbo'].map(f =>
+      of(f, '7').list.filter(o => o.type === 'Text').length),
+    pips: ['mobile', 'standard', 'jumbo'].map(f => suits(of(f, '7')).length),
+    // Half the pips on a ten are upside down, which is what makes the card
+    // the same either way up. Phaser wraps a half turn to -180, not 180.
+    turned: suits(of('standard', '10')).filter(o => Math.abs(o.angle) === 180).length,
+  });
+})()`));
+check(JSON.stringify(drawn.indices) === '[1,2,2]',
+  `one corner on mobile, two on the printed faces (${drawn.indices.join('/')})`);
+check(drawn.pips[0] === 1 && drawn.pips[1] === 7 && drawn.pips[2] === 7,
+  `and a true count of pips rather than one big suit (${drawn.pips.join('/')})`);
+check(drawn.turned === 5,
+  `and half of a ten's pips are printed upside down (${drawn.turned})`);
+
+// The clearance the layout was measured against, checked against the text the
+// browser actually laid out rather than against an assumed width. "10" is the
+// widest rank and the only one this is ever tight for.
+//
+// A box overlap and not a horizontal one, because the two faces clear their
+// pips in different directions: standard has room to put the columns beside
+// the index, and jumbo - whose index is twice as wide - has none, so its pip
+// field drops below the corner instead. Measuring only in x passes one and
+// fails the other for no reason either of them is wrong.
+const clear = JSON.parse(await evaluate(`(() => {
+  const s = ${faces};
+  const out = {};
+  for (const face of ['standard', 'jumbo']) {
+    const card = s.cards.find(c => c.card.id === face + '-10');
+    const index = card.list.find(o => o.type === 'Text');
+    const corner = { x0: index.x, x1: index.x + index.width,
+      y0: index.y - index.height / 2, y1: index.y + index.height / 2 };
+    const size = card.metrics.pips.size;
+    const pips = card.list.filter(o => o.type === 'Image'
+      && Math.abs(o.displayWidth - size) < 0.5
+      && Math.abs(o.x) <= card.metrics.pips.right + size / 2 + 0.1);
+    out[face] = pips.filter(p => {
+      const box = { x0: p.x - size / 2, x1: p.x + size / 2,
+        y0: p.y - size / 2, y1: p.y + size / 2 };
+      return box.x0 < corner.x1 && corner.x0 < box.x1
+        && box.y0 < corner.y1 && corner.y0 < box.y1;
+    }).length;
+  }
+  return JSON.stringify(out);
+})()`));
+check(clear.standard === 0 && clear.jumbo === 0,
+  `a ten's index is printed on none of its pips `
+  + `(standard ${clear.standard}, jumbo ${clear.jumbo})`);
 
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');

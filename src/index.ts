@@ -18,6 +18,7 @@ export * from './card-face.js';
 export * from './shuffle.js';
 export * from './riffle.js';
 export * from './deck-theme.js';
+export * from './tuck-box.js';
 export * from './court.js';
 export * from './ink.js';
 export * from './assets.js';

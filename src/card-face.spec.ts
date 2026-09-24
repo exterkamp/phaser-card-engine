@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BASE_CARD_WIDTH, cardFaceMetrics, courtArtRect } from './card-face.js';
-import { CARD_HEIGHT, CARD_WIDTH } from './cards.js';
+import {
+  BASE_CARD_WIDTH, DEFAULT_FACE_STYLE, FACE_STYLES, cardFaceMetrics, courtArtRect,
+  pipLayout, pipPlaces,
+} from './card-face.js';
+import { CARD_HEIGHT, CARD_WIDTH, Rank } from './cards.js';
 
 describe('the card face', () => {
   const base = cardFaceMetrics();
@@ -74,5 +77,161 @@ describe('a court portrait', () => {
     const m = cardFaceMetrics(60);
     const tall = courtArtRect(m, { width: 100, height: 200 });
     expect(tall.height).toBeCloseTo(120);
+  });
+});
+
+describe('the three faces', () => {
+  it('is a layout for every style named and no more', () => {
+    for (const face of FACE_STYLES) {
+      expect(cardFaceMetrics(60, face).face).toBe(face);
+    }
+    expect(cardFaceMetrics(60).face).toBe(DEFAULT_FACE_STYLE);
+  });
+
+  // The mobile face gave up the second index to pay for everything else being
+  // bigger. That is the trade, and it is the whole difference between the
+  // three - so it is worth pinning down rather than leaving to the drawing.
+  it('prints one corner on the mobile face and two on the printed ones', () => {
+    expect(cardFaceMetrics(60, 'mobile').corners).toBe(1);
+    expect(cardFaceMetrics(60, 'standard').corners).toBe(2);
+    expect(cardFaceMetrics(60, 'jumbo').corners).toBe(2);
+  });
+
+  it('counts pips on the printed faces and draws one big suit on the mobile one', () => {
+    expect(cardFaceMetrics(60, 'mobile').pips).toBeUndefined();
+    expect(cardFaceMetrics(60, 'standard').pips).toBeDefined();
+    expect(cardFaceMetrics(60, 'jumbo').pips).toBeDefined();
+  });
+
+  it('puts the suit under the rank where a card is fanned, and beside it otherwise', () => {
+    expect(cardFaceMetrics(60, 'mobile').index.stacked).toBe(false);
+    expect(cardFaceMetrics(60, 'standard').index.stacked).toBe(true);
+  });
+
+  // Jumbo is the standard card with the corners at roughly 1.6x, which is
+  // about what the real decks do - and the pips give way to pay for it.
+  it('sizes jumbo between the other two', () => {
+    const mobile = cardFaceMetrics(60, 'mobile').index.fontSize;
+    const standard = cardFaceMetrics(60, 'standard').index.fontSize;
+    const jumbo = cardFaceMetrics(60, 'jumbo').index.fontSize;
+    expect(jumbo).toBeGreaterThan(standard);
+    expect(jumbo).toBeLessThan(mobile);
+    expect(cardFaceMetrics(60, 'jumbo').pips!.size)
+      .toBeLessThan(cardFaceMetrics(60, 'standard').pips!.size);
+  });
+
+  // What a fanned pile's step is chosen against. A narrow corner is the point
+  // of the printed faces, and it is worth the smaller index only if it
+  // actually buys a tighter fan.
+  it('needs less of a card showing than the mobile face does', () => {
+    const mobile = cardFaceMetrics(60, 'mobile').peek;
+    for (const face of ['standard', 'jumbo'] as const) {
+      expect(cardFaceMetrics(60, face).peek).toBeLessThan(mobile);
+    }
+  });
+
+  it('scales every face with the card', () => {
+    for (const face of FACE_STYLES) {
+      const one = cardFaceMetrics(60, face);
+      const two = cardFaceMetrics(120, face);
+      expect(two.index.fontSize).toBeCloseTo(one.index.fontSize * 2);
+      expect(two.peek).toBeCloseTo(one.peek * 2);
+      if (one.pips) expect(two.pips!.size).toBeCloseTo(one.pips.size * 2);
+    }
+  });
+});
+
+// These are the real arrangements and not a grid, and getting them wrong is
+// the usual way a home-made deck gives itself away.
+describe('where the pips go', () => {
+  const count = (rank: Rank) => pipLayout(rank).length;
+
+  it('puts down as many pips as the rank says', () => {
+    const ranks: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+    ranks.forEach((rank, i) => expect(count(rank)).toBe(i + 1));
+  });
+
+  it('gives a court and anything unknown none - they have a portrait', () => {
+    for (const rank of ['J', 'Q', 'K'] as Rank[]) expect(count(rank)).toBe(0);
+  });
+
+  // The detail whose absence makes a drawn card look wrong without anyone
+  // being able to say why: it is what makes the card the same either way up.
+  it('prints the bottom half upside down and the top half the right way up', () => {
+    for (const rank of ['2', '6', '7', '9', '10'] as Rank[]) {
+      for (const pip of pipLayout(rank)) {
+        expect(pip.flip).toBe(pip.y > 0.5);
+      }
+    }
+  });
+
+  it('is symmetric about both axes', () => {
+    for (const rank of ['2', '4', '6', '8', '10'] as Rank[]) {
+      const pips = pipLayout(rank);
+      for (const pip of pips) {
+        const mirrored = pips.some(
+          (other) => Math.abs(other.x - (1 - pip.x)) < 1e-6
+            && Math.abs(other.y - (1 - pip.y)) < 1e-6,
+        );
+        expect(mirrored, `${rank} at ${pip.x},${pip.y}`).toBe(true);
+      }
+    }
+  });
+
+  // A seven is a six with one more between the top pair, which is why a seven
+  // and a six are told apart at a glance rather than counted.
+  it('builds the seven out of the six', () => {
+    const six = pipLayout('6');
+    const seven = pipLayout('7');
+    for (const pip of six) {
+      expect(seven.some((p) => p.x === pip.x && p.y === pip.y)).toBe(true);
+    }
+    const extra = seven.filter((p) => !six.some((q) => q.x === p.x && q.y === p.y));
+    expect(extra).toHaveLength(1);
+    expect(extra[0].x).toBe(0.5);
+    expect(extra[0].y).toBeLessThan(0.5);
+  });
+
+  // Four down each side with two slid in between them, not five and five.
+  it('builds the ten out of two columns of four', () => {
+    const ten = pipLayout('10');
+    expect(ten.filter((p) => p.x === 0)).toHaveLength(4);
+    expect(ten.filter((p) => p.x === 1)).toHaveLength(4);
+    expect(ten.filter((p) => p.x === 0.5)).toHaveLength(2);
+  });
+
+  it('draws the ace bigger than the rest, as every printed deck does', () => {
+    expect(pipLayout('A')[0].big).toBe(true);
+    expect(pipLayout('9').every((p) => !p.big)).toBe(true);
+  });
+});
+
+describe('the pips on a card', () => {
+  it('has none at all on the face that draws one big suit', () => {
+    expect(pipPlaces(cardFaceMetrics(60, 'mobile'), '7')).toHaveLength(0);
+  });
+
+  it('keeps every pip on the card', () => {
+    for (const face of ['standard', 'jumbo'] as const) {
+      const metrics = cardFaceMetrics(60, face);
+      for (const rank of ['A', '5', '9', '10'] as Rank[]) {
+        for (const pip of pipPlaces(metrics, rank)) {
+          expect(Math.abs(pip.x) + pip.size / 2).toBeLessThan(metrics.width / 2);
+          expect(Math.abs(pip.y) + pip.size / 2).toBeLessThan(metrics.height / 2);
+        }
+      }
+    }
+  });
+
+  // Three columns have to fit between the two corners without touching.
+  it('keeps the outer columns clear of the middle one', () => {
+    for (const face of ['standard', 'jumbo'] as const) {
+      const metrics = cardFaceMetrics(60, face);
+      const ten = pipPlaces(metrics, '10');
+      const left = Math.max(...ten.filter((p) => p.x < -1e-6).map((p) => p.x + p.size / 2));
+      const middle = Math.min(...ten.filter((p) => Math.abs(p.x) < 1e-6)
+        .map((p) => p.x - p.size / 2));
+      expect(left, face).toBeLessThan(middle);
+    }
   });
 });

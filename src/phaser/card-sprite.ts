@@ -4,6 +4,7 @@ import { courtTextureKey } from './court-art.js';
 import {
   BASE_CARD_WIDTH,
   Card,
+  Rank,
   CardFaceMetrics,
   COURT_PALETTES,
   DECK_STOCK,
@@ -14,8 +15,11 @@ import {
   DEFAULT_DECK_THEME,
   CARD_INDEX_FONT,
   TEXT_OVERSAMPLE,
+  DEFAULT_FACE_STYLE,
+  FaceStyle,
   cardFaceMetrics,
   courtArtRect,
+  pipPlaces,
   SuitInk,
   cardAssetBase,
   cssColor,
@@ -93,7 +97,16 @@ export function preloadCardArt(scene: Phaser.Scene, options: CardArtOptions = {}
 }
 
 const suitKey = (suit: string) => `pce-suit-${suit}`;
-const backKey = (theme: DeckTheme) => `pce-back-${theme}`;
+/**
+ * The texture `preloadCardArt` loaded a theme's back into.
+ *
+ * Exported because a card is not the only thing a deck's back is printed on:
+ * the box it comes in carries the same pattern - see phaser/tuck-box-art.ts -
+ * and reloading the same image under a second name would be a second copy of
+ * it in the texture manager.
+ */
+export const backTextureKey = (theme: DeckTheme) => `pce-back-${theme}`;
+const backKey = backTextureKey;
 
 /** One color scaled toward black, channel by channel. */
 function shade(color: number, factor: number): number {
@@ -194,6 +207,16 @@ function cardBody(
 export interface CardStyle {
   /** How wide to draw it. Everything else follows from this. */
   width?: number;
+  /**
+   * Which of the three layouts the face is printed in.
+   *
+   * `mobile` by default - one big index, one big suit, one corner - which is
+   * the card to use when several are fanned on a phone. `standard` is the
+   * card as it is actually printed, with two corners and a true count of
+   * pips; `jumbo` is that with the indices at about twice the size. See
+   * card-face.ts.
+   */
+  face?: FaceStyle;
   theme?: DeckTheme;
   /** What the back's ink is printed over. */
   backColor?: number;
@@ -273,7 +296,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     // near-black stock, which is not a card at all.
     const ink = inkOf(style.ink ?? themeInk(theme), card.suit);
     const dpr = style.pixelRatio ?? boardPixelRatio(scene);
-    const metrics = cardFaceMetrics(width);
+    const metrics = cardFaceMetrics(width, style.face ?? DEFAULT_FACE_STYLE);
 
     // A theme is a palette, so a card that says nothing about color still
     // knows which portrait it wants; `courtPalette` is for a deck that is not
@@ -305,7 +328,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       .setDisplaySize(metrics.width, metrics.height);
     this.add(this.back);
 
-    // A court portrait, or one big suit. Both sit below the index, which is
+    // A court portrait, or the suits. Both sit below the index, which is
     // added last so it draws over either.
     const court = isCourtRank(card.rank)
       ? courtTextureKey(palette, card.rank, card.suit, style.courtWidth ?? 480)
@@ -313,33 +336,18 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     if (court !== undefined && scene.textures.exists(court)) {
       this.keep(this.portrait(scene, court));
     } else {
-      this.keep(
-        scene.add.image(0, metrics.pip.y, inkedSuit(scene, card.suit, ink))
-          .setDisplaySize(metrics.pip.size, metrics.pip.size),
-      );
+      this.suits(scene, card, ink);
       // The portrait may simply not have finished rendering. A card built in
-      // the meantime shows its pip and takes the portrait when it lands,
+      // the meantime shows its pips and takes the portrait when it lands,
       // which is what lets a game create its deck and start its render of the
       // courts in the same breath rather than having to order the two.
       if (court !== undefined) this.awaitCourt(scene, court);
     }
 
-    const rank = scene.add.text(metrics.index.x, metrics.index.y, card.rank, {
-      fontFamily: CARD_INDEX_FONT,
-      fontSize: `${metrics.index.fontSize}px`,
-      fontStyle: 'bold',
-      color: Phaser.Display.Color.IntegerToColor(ink).rgba,
-      resolution: dpr * TEXT_OVERSAMPLE,
-    }).setOrigin(0, 0.5);
-    this.keep(rank);
-    // Against the rank's measured width rather than a guess, because "10" is
-    // half as wide again as "4" and the suit has to sit beside whichever it is.
-    this.keep(
-      scene.add.image(
-        rank.x + rank.width + metrics.index.gap, metrics.index.y,
-        inkedSuit(scene, card.suit, ink),
-      ).setDisplaySize(metrics.index.suitSize, metrics.index.suitSize).setOrigin(0, 0.5),
-    );
+    this.corner(scene, card, ink, dpr, false);
+    // The second corner, upside down, on the faces that print one. It is what
+    // makes a card the same picked up either way round.
+    if (metrics.corners === 2) this.corner(scene, card, ink, dpr, true);
 
     this.setSize(metrics.width, metrics.height);
     this.setFaceUp(card.faceUp);
@@ -349,6 +357,79 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   private keep(item: Phaser.GameObjects.GameObject): void {
     this.faceParts.push(item);
     this.add(item);
+  }
+
+  /**
+   * One corner: the rank, and its suit beside it or under it.
+   *
+   * `turned` puts the same thing in the opposite corner rotated half a turn,
+   * which is a reflection through the card's centre rather than a second
+   * layout - so the two corners cannot drift apart.
+   */
+  private corner(
+    scene: Phaser.Scene, card: Card<S>, ink: number, dpr: number, turned: boolean,
+  ): void {
+    const { index } = this.metrics;
+    const flip = turned ? -1 : 1;
+
+    const rank = scene.add.text(index.x * flip, index.y * flip, card.rank, {
+      fontFamily: CARD_INDEX_FONT,
+      fontSize: `${index.fontSize}px`,
+      fontStyle: 'bold',
+      color: Phaser.Display.Color.IntegerToColor(ink).rgba,
+      resolution: dpr * TEXT_OVERSAMPLE,
+    // Origin at the left-middle on both, not the right-middle on the turned
+    // one. Phaser rotates about the origin, so a half-turn about the left
+    // edge is what sends the glyphs back across the card - anchoring the
+    // turned corner at its right edge instead put it off the card entirely.
+    }).setOrigin(0, 0.5).setAngle(turned ? 180 : 0);
+    this.keep(rank);
+
+    const suit = scene.add.image(0, 0, inkedSuit(scene, card.suit, ink))
+      .setDisplaySize(index.suitSize, index.suitSize)
+      .setAngle(turned ? 180 : 0);
+    if (index.stacked) {
+      // Under the rank, centred on it. A printed corner is a narrow column,
+      // and a column is what still shows when a hand is fanned.
+      const gap = index.fontSize * 0.34;
+      suit.setPosition(
+        (index.x + rank.width / 2) * flip,
+        (index.y + index.fontSize * 0.42 + gap) * flip,
+      );
+    } else {
+      // Beside it, against the rank's measured width rather than a guess:
+      // "10" is half as wide again as "4" and the suit has to sit beside
+      // whichever it is.
+      suit.setOrigin(0, 0.5)
+        .setPosition((index.x + rank.width + index.gap) * flip, index.y * flip);
+    }
+    this.keep(suit);
+  }
+
+  /**
+   * What a number card carries: one big suit, or a count of them.
+   *
+   * The mobile face draws one, because five rows of small glyphs at phone
+   * size is a blurry cluster rather than a card. The other two count them
+   * out in the arrangement a printed deck uses - see `pipLayout`, which is
+   * where the fact that a seven is a six plus one lives.
+   */
+  private suits(scene: Phaser.Scene, card: Card<S>, ink: number): void {
+    const places = pipPlaces(this.metrics, card.rank as Rank);
+    if (!places.length) {
+      this.keep(
+        scene.add.image(0, this.metrics.pip.y, inkedSuit(scene, card.suit, ink))
+          .setDisplaySize(this.metrics.pip.size, this.metrics.pip.size),
+      );
+      return;
+    }
+    for (const place of places) {
+      this.keep(
+        scene.add.image(place.x, place.y, inkedSuit(scene, card.suit, ink))
+          .setDisplaySize(place.size, place.size)
+          .setAngle(place.flip ? 180 : 0),
+      );
+    }
   }
 
   /** The portrait, sized off the texture's own proportions. */

@@ -1,13 +1,27 @@
-import { CARD_ASPECT, CARD_WIDTH } from './cards.js';
+import { CARD_ASPECT, CARD_WIDTH, Rank } from './cards.js';
 
 // What a card face looks like, as numbers.
 //
-// The layout is Nertz's, which is the one of the two games that had thought
-// hardest about it: a large index with its suit beside it on one line in the
-// top-left, and one big suit - or a court portrait, full bleed - filling the
-// bottom. No mirrored bottom-right corner, because once a card is legible at
-// a glance the second index is redundant, and dropping it is what paid for
-// everything else being bigger.
+// Three faces, because a card is laid out for the thing it is read on.
+//
+//   mobile    a large index with its suit beside it in the top-left, one big
+//             suit filling the rest, and no second corner at all
+//   standard  the card as it is printed: rank over suit in two opposite
+//             corners, and a true count of pips in the classic arrangement
+//   jumbo     the same, with indices at roughly twice the size - the deck
+//             sold for players who cannot read a standard one across a table
+//
+// `mobile` is Nertz's, which is the one of the two games that had thought
+// hardest about a card seen four at a time on a phone: once a card is legible
+// at a glance the second index is redundant, and dropping it is what paid for
+// everything else being bigger. It is still the default for that reason.
+//
+// What the other two buy is the thing `mobile` gave up. A standard card tells
+// you its rank twice, from either end, so a hand held fanned either way round
+// reads - and its pips are a count rather than a symbol, which is the only
+// version of a card where a seven and a nine differ by something other than a
+// digit. At small sizes that is a worse card. At the size a card is actually
+// dealt on a table it is the right one.
 //
 // Here rather than in the sprite so it can be checked without a browser. The
 // sprite is fifteen setPosition calls against these numbers; the numbers are
@@ -17,7 +31,16 @@ import { CARD_ASPECT, CARD_WIDTH } from './cards.js';
 /** The size everything below was measured at. */
 export const BASE_CARD_WIDTH = CARD_WIDTH;
 
+/** Which of the three layouts a card is printed in. */
+export type FaceStyle = 'mobile' | 'standard' | 'jumbo';
+
+export const FACE_STYLES: readonly FaceStyle[] = ['mobile', 'standard', 'jumbo'];
+
+/** What a game gets if it says nothing - see the note at the top. */
+export const DEFAULT_FACE_STYLE: FaceStyle = 'mobile';
+
 export interface CardFaceMetrics {
+  face: FaceStyle;
   width: number;
   height: number;
   /** Corner radius of the card body. */
@@ -32,9 +55,43 @@ export interface CardFaceMetrics {
     /** Gap between the rank's right edge and its suit. */
     gap: number;
     suitSize: number;
+    /**
+     * The suit under the rank rather than beside it.
+     *
+     * Which is what a printed card does, and what makes a corner narrow
+     * enough to be read from a hand held in a fan. Beside it is the mobile
+     * layout's, where the corner is wide because nothing is fanned over it.
+     */
+    stacked: boolean;
   };
+  /**
+   * Whether the index is repeated, upside down, in the opposite corner.
+   *
+   * One on the mobile face and two on the other two. A card with one index
+   * has a right way up; a card with two can be picked up either way round,
+   * which is most of why printed cards have had two since the 1860s.
+   */
+  corners: 1 | 2;
   /** The one big suit a number card carries, centred on this point. */
   pip: { y: number; size: number };
+  /**
+   * The box the pips are counted out in, on the faces that count them.
+   *
+   * Undefined on the mobile face, which draws one big suit instead - five
+   * rows of small glyphs at that size reads as a blurry cluster rather than
+   * as a card.
+   */
+  pips?: {
+    /** Each glyph's size. */
+    size: number;
+    /** The ace's, which is bigger than the rest on every printed deck. */
+    aceSize: number;
+    /** The field, from the card's centre. */
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
   /**
    * How much of a card has to show for its index to be readable - the ink
    * plus its two margins, and nothing else.
@@ -49,49 +106,200 @@ export interface CardFaceMetrics {
 }
 
 // Measured off rendered cards at 60 units wide, and every one of them is a
-// ratio of the width so a card can be drawn at any size. The comments are
-// Nertz's reasoning, kept because the numbers are otherwise arbitrary.
-const RATIOS = {
+// ratio of the width so a card can be drawn at any size. The comments on the
+// mobile face are Nertz's reasoning, kept because the numbers are otherwise
+// arbitrary.
+const SHARED = {
   radius: 6 / 60,
   pad: 7 / 60,
-  // Archivo at 27px puts down 19px of ink, which is the proportion the corner
-  // was laid out against.
-  indexFontSize: 27 / 60,
-  indexLeft: 5 / 60,
-  indexGap: 1 / 60,
-  indexSuitSize: 20 / 60,
-  // Half-height of the index's actual ink, and the gaps above and below it.
-  inkHalfHeight: 9.7 / 60,
-  inkTopMargin: 6 / 60,
-  inkBottomMargin: 4 / 60,
-  // One big suit rather than a true pip count: five rows of small glyphs at
-  // this size reads as a blurry cluster rather than as a card.
-  pipSize: 48 / 60,
-  pipCentreY: 12.5 / 60,
 };
 
-export function cardFaceMetrics(width: number = BASE_CARD_WIDTH): CardFaceMetrics {
+interface FaceRatios {
+  // Archivo at 27px puts down 19px of ink, which is the proportion the mobile
+  // corner was laid out against.
+  indexFontSize: number;
+  indexLeft: number;
+  indexGap: number;
+  indexSuitSize: number;
+  stacked: boolean;
+  corners: 1 | 2;
+  // Half-height of the index's actual ink, and the gaps above and below it.
+  inkHalfHeight: number;
+  inkTopMargin: number;
+  inkBottomMargin: number;
+  // One big suit rather than a true pip count, on the face that has no room
+  // to count: five rows of small glyphs at phone size reads as a blurry
+  // cluster rather than as a card.
+  pipSize: number;
+  pipCentreY: number;
+  /** The counted field, on the faces that have one. */
+  pips?: { size: number; aceSize: number; inset: number; top: number };
+}
+
+const FACES: Record<FaceStyle, FaceRatios> = {
+  mobile: {
+    indexFontSize: 27 / 60,
+    indexLeft: 5 / 60,
+    indexGap: 1 / 60,
+    indexSuitSize: 20 / 60,
+    stacked: false,
+    corners: 1,
+    inkHalfHeight: 9.7 / 60,
+    inkTopMargin: 6 / 60,
+    inkBottomMargin: 4 / 60,
+    pipSize: 48 / 60,
+    pipCentreY: 12.5 / 60,
+  },
+  // The card as it is printed. A real index is about 7mm on a 63mm card, and
+  // the font box is half again as tall as the ink in it, so 15/60 of the
+  // width lands on roughly the right amount of ink. The corner is narrow -
+  // rank over suit, both about the same size - because that column is what
+  // has to show when a hand is fanned.
+  standard: {
+    // Small, and it has to be. A real index is about 4.5mm of cap height on a
+    // 63mm card, and the reason it is that small is the pips: the outer
+    // column of a ten runs down the card a third of the way in, and anything
+    // wider than this in the corner is printed on top of it. The widest rank
+    // is "10", which is what the clearance was measured against.
+    indexFontSize: 8 / 60,
+    indexLeft: 4 / 60,
+    indexGap: 0,
+    indexSuitSize: 5.5 / 60,
+    stacked: true,
+    corners: 2,
+    inkHalfHeight: 2.9 / 60,
+    inkTopMargin: 3.2 / 60,
+    // Deep enough to clear the suit under the rank as well as the rank, which
+    // is what a two-cornered card has to show before it can be read.
+    inkBottomMargin: 8 / 60,
+    pipSize: 34 / 60,
+    pipCentreY: 0,
+    // Three columns and four rows of them have to fit between the two
+    // corners, which is what fixes both of these. Too little inset and the
+    // top row of a ten sits in the index; too much and the outer columns
+    // meet the middle one.
+    pips: { size: 9 / 60, aceSize: 22 / 60, inset: 19.5 / 60, top: 13 / 60 },
+  },
+  // The deck sold to people who cannot read a standard one across a table:
+  // the same card with the corners at about twice the size. The pip field
+  // gives way rather than the index - a jumbo deck's pips really are
+  // squeezed, and that is the trade the deck exists to make.
+  jumbo: {
+    // Half again as big as the standard index, which is about what the real
+    // decks do. Every unit of it is paid for by the pips below.
+    indexFontSize: 12 / 60,
+    indexLeft: 3.5 / 60,
+    indexGap: 0,
+    indexSuitSize: 7 / 60,
+    stacked: true,
+    corners: 2,
+    inkHalfHeight: 4.3 / 60,
+    inkTopMargin: 3.2 / 60,
+    inkBottomMargin: 10 / 60,
+    pipSize: 30 / 60,
+    pipCentreY: 0,
+    // An index this wide cannot be cleared sideways - there is no room left
+    // between the corners for three columns of pips - so the field gives way
+    // downwards instead and the pips get smaller. That squeeze is the trade
+    // a jumbo deck exists to make, and it is why the pips on a real one look
+    // cramped next to a standard card's. `top` is set by where the suit under
+    // the rank ends, plus a pip's own half-height.
+    pips: { size: 8.5 / 60, aceSize: 20 / 60, inset: 19.5 / 60, top: 26 / 60 },
+  },
+};
+
+export function cardFaceMetrics(
+  width: number = BASE_CARD_WIDTH, face: FaceStyle = DEFAULT_FACE_STYLE,
+): CardFaceMetrics {
   const height = width / CARD_ASPECT;
   const at = (ratio: number) => ratio * width;
-  const inkHalf = at(RATIOS.inkHalfHeight);
-  const inkTop = at(RATIOS.inkTopMargin);
+  const ratios = FACES[face] ?? FACES[DEFAULT_FACE_STYLE];
+  const inkHalf = at(ratios.inkHalfHeight);
+  const inkTop = at(ratios.inkTopMargin);
 
   return {
+    face,
     width,
     height,
-    radius: at(RATIOS.radius),
-    pad: at(RATIOS.pad),
+    radius: at(SHARED.radius),
+    pad: at(SHARED.pad),
     index: {
-      x: -width / 2 + at(RATIOS.indexLeft),
+      x: -width / 2 + at(ratios.indexLeft),
       // Up from the middle by everything above the ink's own middle.
       y: -(height / 2 - (inkTop + inkHalf)),
-      fontSize: at(RATIOS.indexFontSize),
-      gap: at(RATIOS.indexGap),
-      suitSize: at(RATIOS.indexSuitSize),
+      fontSize: at(ratios.indexFontSize),
+      gap: at(ratios.indexGap),
+      suitSize: at(ratios.indexSuitSize),
+      stacked: ratios.stacked,
     },
-    pip: { y: at(RATIOS.pipCentreY), size: at(RATIOS.pipSize) },
-    peek: inkTop + 2 * inkHalf + at(RATIOS.inkBottomMargin),
+    corners: ratios.corners,
+    pip: { y: at(ratios.pipCentreY), size: at(ratios.pipSize) },
+    pips: ratios.pips && {
+      size: at(ratios.pips.size),
+      aceSize: at(ratios.pips.aceSize),
+      left: -width / 2 + at(ratios.pips.inset),
+      right: width / 2 - at(ratios.pips.inset),
+      top: -height / 2 + at(ratios.pips.top),
+      bottom: height / 2 - at(ratios.pips.top),
+    },
+    // On a two-cornered card the peek has to clear the suit under the rank as
+    // well as the rank, which is what the bottom margin is carrying here.
+    peek: inkTop + 2 * inkHalf + at(ratios.inkBottomMargin),
   };
+}
+
+/**
+ * Where the pips go on a number card, as fractions of the field.
+ *
+ * `x` runs 0 (left column) to 1 (right), `y` runs 0 (top row) to 1 (bottom).
+ * A pip in the bottom half is printed upside down - which is not decoration:
+ * it is what makes the card the same either way up, and it is the detail
+ * whose absence makes a drawn card look wrong without anyone being able to
+ * say why.
+ *
+ * These are the real arrangements and not a grid. Seven is six with one pip
+ * between the top pair, not seven in rows; ten is four down each side with
+ * two more slid in between them. Getting eight and ten wrong is the usual
+ * way a home-made deck gives itself away.
+ */
+export interface PipPlace { x: number; y: number; flip: boolean; big?: boolean }
+
+export function pipLayout(rank: Rank): readonly PipPlace[] {
+  const place = (x: number, y: number, big?: boolean): PipPlace =>
+    ({ x, y, flip: y > 0.5 + 1e-6, big });
+  const sides = (ys: number[]) => ys.flatMap((y) => [place(0, y), place(1, y)]);
+
+  switch (rank) {
+    case 'A': return [place(0.5, 0.5, true)];
+    case '2': return [place(0.5, 0), place(0.5, 1)];
+    case '3': return [place(0.5, 0), place(0.5, 0.5), place(0.5, 1)];
+    case '4': return sides([0, 1]);
+    case '5': return [...sides([0, 1]), place(0.5, 0.5)];
+    case '6': return sides([0, 0.5, 1]);
+    // The seventh sits between the top pair, which is why a seven and a six
+    // are told apart at a glance rather than counted.
+    case '7': return [...sides([0, 0.5, 1]), place(0.5, 0.25)];
+    case '8': return [...sides([0, 0.5, 1]), place(0.5, 0.25), place(0.5, 0.75)];
+    case '9': return [...sides([0, 1 / 3, 2 / 3, 1]), place(0.5, 0.5)];
+    case '10': return [...sides([0, 1 / 3, 2 / 3, 1]), place(0.5, 1 / 6), place(0.5, 5 / 6)];
+    // A court has a portrait instead, and a suit nobody declared has nothing
+    // to count.
+    default: return [];
+  }
+}
+
+/** The same, in the card's own coordinates. */
+export function pipPlaces(
+  metrics: CardFaceMetrics, rank: Rank,
+): readonly { x: number; y: number; size: number; flip: boolean }[] {
+  const field = metrics.pips;
+  if (!field) return [];
+  return pipLayout(rank).map((pip) => ({
+    x: field.left + (field.right - field.left) * pip.x,
+    y: field.top + (field.bottom - field.top) * pip.y,
+    size: pip.big ? field.aceSize : field.size,
+    flip: pip.flip,
+  }));
 }
 
 /**

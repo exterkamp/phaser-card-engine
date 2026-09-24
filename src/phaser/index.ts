@@ -10,3 +10,5 @@ export * from './card-sprite.js';
 export * from './court-art.js';
 export * from './card-mesh.js';
 export * from './shuffle.js';
+export * from './tuck-box.js';
+export * from './tuck-box-art.js';

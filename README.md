@@ -30,7 +30,7 @@ const art = deckThemePath('antique', 'back.webp');   // /cards/art/antique/back.
 
 | | |
 | --- | --- |
-| `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
+| `card-face.ts` | `cardFaceMetrics`, `FACE_STYLES`, `pipLayout`, `pipPlaces` — where the index, its suit and the pips go, in any of the three faces at any card width |
 | `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite`, `preloadCardArt`, `throwCard` and `dealCards`, behind `phaser-card-engine/phaser` |
 | `hand.ts` | `Hand` and `defineHand`, `handPositions`, `nextHandPlace`, `handBounds` — cards held in a fan rather than stacked |
 | `stack.ts` | `Stack` and `defineStack`, `stackAngle`, `MESSY_TURN`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
@@ -41,6 +41,7 @@ const art = deckThemePath('antique', 'back.webp');   // /cards/art/antique/back.
 | `ink.ts` | `defaultInk`, `themeInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
 | `assets.ts` | `cardAssetBase`, `setCardAssetBase` — where the card art is served from, for a site that is not at the root of a host |
 | `court.ts` | `COURT_PALETTES`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
+| `tuck-box.ts` | `tuckBoxSize`, `boxQuads`, `flapQuads`, `deckRise`, `tuckBoxAtlas`, `quadVertices` — the shape of a box, and where its printing goes, as arithmetic |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
 | `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the six card backs, and the suit glyphs |
 | `assets/fonts` | the four woff2 files and their licences |
@@ -265,7 +266,7 @@ It is published at
 **<https://exterkamp.github.io/phaser-card-engine/>** on every push to main,
 by `.github/workflows/pages.yml`.
 
-`/` is an index of the six pages, and every page has a **← Demos** button in
+`/` is an index of the nine pages, and every page has a **← Demos** button in
 its top-left corner to get back to it:
 
 - **stacks** at `/stacks.html` — one of every fan direction, in both draw
@@ -280,6 +281,12 @@ its top-left corner to get back to it:
 - **deck editor** at `/deck.html` — every color a deck has, over a deck you
   can step through a rank at a time, starting from six ready-made ones
   (Press, Midnight, Halloween, Forest, Parchment, Neon)
+- **riffle** at `/shuffle.html` — the pack cuts, both halves bow under the
+  thumbs, and the cards spring off one at a time
+- **tuck box** at `/box.html` — the box a deck comes in, turning on the spot;
+  open it and the deck lifts out and shuffles
+- **card faces** at `/faces.html` — the same four cards in the three layouts,
+  at a size you can drag
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -682,6 +689,101 @@ and obvious if you zoom, and it is not reproduced here.
 work with no SVG stage to render from, so there is nothing for a palette to
 recolor. What it has instead is transparency — it is ink on nothing, and the
 color behind it is `BACK_COLORS`.
+
+## Three faces, and which one to print
+
+A card is laid out for the thing it is read on, so there are three of them:
+
+```ts
+new CardSprite(this, card, { width: 60, face: 'standard' });
+```
+
+| | index | corners | the middle |
+| --- | --- | --- | --- |
+| `mobile` (default) | large, suit beside it | one | one big suit |
+| `standard` | as printed, suit under it | two | a true count of pips |
+| `jumbo` | about 1.5x standard | two | the same count, squeezed |
+
+`mobile` is the card this package started with, and it is still the default.
+It gave up the second index to pay for everything else being bigger: once a
+card is legible at a glance the mirrored corner is redundant, and a phone
+showing four cards fanned over each other is the case it was drawn for. Five
+rows of small glyphs at that size read as a blurry cluster rather than as a
+card, which is why its middle is one big suit and not seven of them.
+
+What the other two buy is exactly what `mobile` gave up. A standard card tells
+you its rank twice, from either end, so it reads picked up either way round -
+and its pips are a *count*, which is the only version of a card where a seven
+and a nine differ by something other than a digit. `pipLayout` has the real
+arrangements rather than a grid: a seven is a six with one more between the
+top pair, a ten is four down each side with two slid in between, and every pip
+below the middle is printed upside down. That last one is the detail whose
+absence makes a drawn card look wrong without anyone being able to say why.
+
+They are not free. The index has to be small enough that the outer column of a
+ten clears it, which is most of why a printed index is as small as it is - and
+`jumbo`'s cannot be cleared sideways at all, so its pip field drops below the
+corner and the pips get smaller. That squeeze is the trade a jumbo deck exists
+to make. `/faces.html` puts the three side by side with a size slider; drag it
+down and watch which of them is still a card.
+
+`peek` moves with the face, and it is the number a fanned pile's step is
+chosen against - a narrow printed corner needs about half as much of a card
+showing as the mobile one does.
+
+## Boxes: a deck arrives in something
+
+```ts
+import { TuckBox, supportsTuckBox } from 'phaser-card-engine/phaser';
+
+const box = new TuckBox(this, 240, 210, {
+  cardWidth: 96,
+  art: { theme: 'press', backColor: 0x2a5866 },
+});
+box.spin = 0.5;                       // radians a second, on the spot
+this.events.on('update', (_t, dt) => box.step(dt));
+
+box.open = 1;                         // the lid swings back, the deck rises
+const at = box.deckCentre();          // where to put the real cards
+box.showDeck(false);
+```
+
+Everything else this package draws is flat by construction. A box is the one
+object with a back and two sides you are meant to see, so it is a `Mesh`: real
+vertices, a real projection, and a model rotation that turns it rather than
+skewing a picture of it. The shape is in `tuck-box.ts` and is pure arithmetic -
+`boxQuads` for the tube, `flapQuads` for the lid at a given fraction open -
+so it can be checked without a renderer.
+
+Three things about it are worth knowing before changing any of it.
+
+**It is three meshes.** Phaser depth-sorts faces *within* a mesh and not
+between them, and the lid laid back has to pass behind the deck coming out
+while the front panel passes in front of it. Lid, deck, body, added in that
+order, is the whole of what makes it read as one object.
+
+**The tab folds twice.** A tuck box is a tube with a flap at each end, and the
+flap carries a tab that is tucked down inside the front panel. Animating only
+the hinge sends that tab sweeping backwards through the box it is supposed to
+be inside; `flapQuads` straightens the second fold ahead of the first, because
+on a real box the tab has to clear the front panel before the lid is halfway
+up.
+
+**The deck inside is a stand-in.** It is a closed block the size of fifty-two
+cards, with its own cut edges - not the cards, which are `CardSprite`s and
+flat. The swap happens with the box square to the camera, where a block seen
+head-on and a stack seen head-on are the same picture. `deckCentre()` answers
+where the block actually got to by reading the mesh's own transformed
+vertices, because the projection is what decides that and a second opinion
+about it will disagree.
+
+**WebGL only.** Meshes are not drawn at all by the canvas renderer, so a box
+is the one thing here with no flat fallback - ask `supportsTuckBox` and show
+something else.
+
+The printing is `renderTuckBox`, and it costs nothing to theme: a box carries
+the deck's own back over the deck's own colour, so every deck in the package
+already has a box. `tools/render-backs.py` draws the backs themselves.
 
 ## Shuffling, and watching it happen
 
