@@ -259,12 +259,17 @@ export interface CourtSeed { x: number; y: number }
 /**
  * The seeds for one card, in fractions of the finished art.
  *
- * Recorded against the half crop, which is the top half of the full one - so
- * on the full cut a seed's y is simply halved. And the source is double-ended,
- * so every walled-off patch has a twin half a turn away from it: the sliver
- * beside the king of hearts' sword is there twice on a printed card, once
- * each way up, and seeding only the first leaves the second the wrong colour
- * on any deck whose stock is not its highlight.
+ * Recorded against the half crop, so a cut that takes a different window has
+ * to move them: back out to where they are on the page, then in again by that
+ * window. Done by arithmetic rather than by a factor, because the two windows
+ * do not start in the same place - the full one opens lower, at the wipe -
+ * and a factor that happened to be right when they did would have gone quietly
+ * wrong when they stopped.
+ *
+ * And the source is double-ended, so every walled-off patch has a twin half a
+ * turn away: the sliver beside the king of hearts' sword is there twice on a
+ * printed card, once each way up, and seeding only the first leaves the
+ * second the wrong colour on any deck whose stock is not its highlight.
  */
 export function courtSeeds(
   rank: string, suit: string, cut: CourtCut = 'half',
@@ -272,9 +277,17 @@ export function courtSeeds(
   const seeds = COURT_BACKGROUND_SEEDS[`${rank}-${suit}`] ?? [];
   if (cut === 'half') return seeds;
   return seeds.flatMap(({ x, y }) => [
-    { x, y: y / 2 },
-    { x: 1 - x, y: 1 - y / 2 },
+    { x, y: seedIn(y, cut) },
+    { x: 1 - x, y: 1 - seedIn(y, cut) },
   ]);
+}
+
+/** A seed's y, recorded against the half crop, in some other cut's window. */
+function seedIn(y: number, cut: CourtCut): number {
+  const { top, seam } = COURT_SOURCE;
+  const onPage = top + y * (seam - top);
+  const from = courtTop(cut);
+  return (onPage - from) / (courtBottom(cut) - from);
 }
 
 /**
@@ -286,8 +299,9 @@ export function courtSeeds(
  * crop to cut crowns off in the first place.
  */
 export function courtArtHeight(width: number, cut: CourtCut = 'half'): number {
-  const { top, left, right, width: sw, height: sh } = COURT_SOURCE;
-  return Math.round((width * ((courtBottom(cut) - top) * sh)) / ((right - left) * sw));
+  const { left, right, width: sw, height: sh } = COURT_SOURCE;
+  const window = courtBottom(cut) - courtTop(cut);
+  return Math.round((width * (window * sh)) / ((right - left) * sw));
 }
 
 /**
@@ -305,9 +319,24 @@ export function courtArtHeight(width: number, cut: CourtCut = 'half'): number {
  */
 export type CourtCut = 'half' | 'full';
 
-/** Where the window stops: the seam for one figure, the far margin for both. */
+/**
+ * Where the window starts.
+ *
+ * The half crop opens at the page's own margin and keeps the blank strip
+ * above the figure, which on the mobile face is card under the index and is
+ * meant to be there. In a ruled panel that same strip is a gap between the
+ * picture and its frame, so the full crop opens where the wipe ends instead -
+ * which is where the figure starts, measured: the blank band came out at
+ * 0.0248 of the art on all twelve, and that lands on `ruleWipe` to within a
+ * pixel of any raster this is drawn at.
+ */
+function courtTop(cut: CourtCut): number {
+  return cut === 'full' ? COURT_SOURCE.ruleWipe : COURT_SOURCE.top;
+}
+
+/** Where it stops: the seam for one figure, the far margin for both. */
 function courtBottom(cut: CourtCut): number {
-  return cut === 'full' ? 1 - COURT_SOURCE.top : COURT_SOURCE.seam;
+  return cut === 'full' ? 1 - COURT_SOURCE.ruleWipe : COURT_SOURCE.seam;
 }
 
 /**
@@ -325,7 +354,8 @@ export function courtSourceSize(width: number): { width: number; height: number 
 export function courtCropRect(
   source: { width: number; height: number }, cut: CourtCut = 'half',
 ): Rect {
-  const { left, right, top } = COURT_SOURCE;
+  const { left, right } = COURT_SOURCE;
+  const top = courtTop(cut);
   return {
     x: Math.round(left * source.width),
     y: Math.round(top * source.height),

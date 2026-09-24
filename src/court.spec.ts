@@ -366,10 +366,23 @@ describe('how much of the source a card takes', () => {
   it('stops at the seam for one figure and at the far margin for both', () => {
     const half = courtCropRect(source, 'half');
     const full = courtCropRect(source, 'full');
-    expect(half.y).toBe(full.y);
     expect(half.x).toBe(full.x);
     expect(half.width).toBe(full.width);
-    expect(full.height).toBeGreaterThan(half.height * 1.9);
+    expect(full.height).toBeGreaterThan(half.height * 1.85);
+  });
+
+  // The half crop keeps the page's blank margin above the figure - on the
+  // mobile face that is card under the index and belongs there. In a ruled
+  // panel the same strip is a gap between the picture and its frame, so the
+  // full crop opens at the wipe instead, which is where the figure starts.
+  it('leaves the blank margin out of the framed cut', () => {
+    const half = courtCropRect(source, 'half');
+    const full = courtCropRect(source, 'full');
+    expect(half.y).toBeLessThan(COURT_SOURCE.ruleWipe * source.height);
+    expect(full.y).toBeGreaterThanOrEqual(
+      Math.round(COURT_SOURCE.ruleWipe * source.height));
+    expect(full.y + full.height).toBeLessThanOrEqual(
+      Math.round((1 - COURT_SOURCE.ruleWipe) * source.height));
   });
 
   it('cuts the full window symmetrically about the seam', () => {
@@ -423,15 +436,26 @@ describe('how much of the source a card takes', () => {
 // a double-ended card has every walled-off patch twice, once each way up.
 // Seeding only the first leaves the second the wrong colour on a dark deck.
 describe('the background seeds on a double-ended card', () => {
-  it('halves the y and adds the twin half a turn away', () => {
+  it('moves the y into the other window and adds the twin half a turn away', () => {
     const half = courtSeeds('K', 'hearts');
     const full = courtSeeds('K', 'hearts', 'full');
     expect(half).toHaveLength(1);
     expect(full).toHaveLength(2);
     expect(full[0].x).toBeCloseTo(half[0].x);
-    expect(full[0].y).toBeCloseTo(half[0].y / 2);
     expect(full[1].x).toBeCloseTo(1 - half[0].x);
-    expect(full[1].y).toBeCloseTo(1 - half[0].y / 2);
+    // Same place on the page, read against a window that starts lower and
+    // runs further. Worked out here the long way round, on purpose: a factor
+    // would have been right while the two windows shared a top edge and gone
+    // quietly wrong when they stopped.
+    const { top, seam, ruleWipe } = COURT_SOURCE;
+    const onPage = top + half[0].y * (seam - top);
+    const expected = (onPage - ruleWipe) / (1 - 2 * ruleWipe);
+    expect(full[0].y).toBeCloseTo(expected, 5);
+    expect(full[1].y).toBeCloseTo(1 - expected, 5);
+  });
+
+  it('leaves a half-cut seed exactly where it was recorded', () => {
+    expect(courtSeeds('J', 'clubs', 'half')).toEqual(courtSeeds('J', 'clubs'));
   });
 
   it('still has nothing to say about the ten cards that need no seed', () => {

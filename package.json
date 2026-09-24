@@ -1,6 +1,6 @@
 {
   "name": "phaser-card-engine",
-  "version": "0.27.2",
+  "version": "0.27.3",
   "description": "The shared half of two card games: card art, suits, ranks, deck themes, shuffling and the typefaces.",
   "license": "CC0-1.0",
   "type": "module",

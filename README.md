@@ -743,6 +743,13 @@ narrow enough column to sit beside a 0.70 panel and this one is not. The
 widest court rank is the Q — 0.75 of the font size in Archivo — and the frame
 has to start outside where that ends, with enough of a gap to see.
 
+The framed cut also opens lower than the half one. The source page has a blank
+margin above the figure and below it, which on the mobile face is card under
+the index and belongs there; in a ruled panel the same strip is a white gap
+between the picture and its rule. So the full window starts where the wipe
+ends — measured at 0.0248 of the art on all twelve, which lands on `ruleWipe`
+— and the panel comes out shorter with the figure touching its frame.
+
 `peek` moves with the face, and it is the number a fanned pile's step is
 chosen against - a narrow printed corner needs about half as much of a card
 showing as the mobile one does.

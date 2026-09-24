@@ -920,13 +920,55 @@ check(courts.mobile.cut === 'half' && courts.standard.cut === 'full'
   && courts.jumbo.cut === 'full',
   `one figure on the mobile face and both on the printed ones `
   + `(${courts.mobile.cut}/${courts.standard.cut}/${courts.jumbo.cut})`);
-check(courts.standard.shape > courts.mobile.shape * 1.9,
-  `and the double-ended art is twice as tall (${courts.mobile.shape} -> ${courts.standard.shape})`);
+// Not quite twice: the framed cut also drops the blank margin at each end,
+// which the half one keeps.
+check(courts.standard.shape > courts.mobile.shape * 1.8,
+  `and the double-ended art is close to twice as tall `
+  + `(${courts.mobile.shape} -> ${courts.standard.shape})`);
 check(courts.mobile.wide === 1 && courts.standard.wide < 0.8,
   `full bleed on one and a framed panel on the other `
   + `(${courts.mobile.wide} / ${courts.standard.wide} of the card)`);
 check(!courts.mobile.framed && courts.standard.framed && courts.jumbo.framed,
   'and only the framed ones are ruled');
+
+// The picture has to reach its frame. The source page has a blank margin
+// above the figure and below it, and a crop that keeps that margin puts a
+// white strip between the art and the rule at both ends - which is a gap you
+// see long before you work out where it came from.
+const filled = JSON.parse(await evaluate(`(async () => {
+  const s = ${faces};
+  const ph = window.__pce;
+  await ph.renderCourts(s, ph.courtStart('press'), { cut: 'full', width: 480 });
+  let worst = 0;
+  let card = '';
+  for (const rank of ['J', 'Q', 'K']) {
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+      const key = [...s.textures.getTextureKeys()].find((k) =>
+        k.includes('court') && k.includes('full') && k.endsWith(rank + '-' + suit));
+      const src = s.textures.get(key).getSourceImage();
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const pen = c.getContext('2d');
+      pen.drawImage(src, 0, 0);
+      const px = pen.getImageData(0, 0, c.width, c.height).data;
+      const inked = (y) => {
+        for (let x = 0; x < c.width; x++) {
+          const i = (y * c.width + x) * 4;
+          if (0.3 * px[i] + 0.6 * px[i + 1] + 0.1 * px[i + 2] < 215) return true;
+        }
+        return false;
+      };
+      let top = 0; while (top < c.height && !inked(top)) top++;
+      let bottom = c.height - 1; while (bottom > 0 && !inked(bottom)) bottom--;
+      const blank = Math.max(top, c.height - 1 - bottom) / c.height;
+      if (blank > worst) { worst = blank; card = rank + suit[0]; }
+    }
+  }
+  return JSON.stringify({ blank: +worst.toFixed(4), card });
+})()`));
+check(filled.blank < 0.005,
+  `every court reaches its frame - widest gap `
+  + `${(filled.blank * 100).toFixed(2)}% on ${filled.card || 'none'}`);
 
 // The corner has to be clear of the panel, and clear by something you can
 // see. A real card's very nearly touch, which is what I sized this to first -
