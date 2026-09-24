@@ -700,7 +700,7 @@ new CardSprite(this, card, { width: 60, face: 'standard' });
 
 | | index | corners | the middle | the courts |
 | --- | --- | --- | --- | --- |
-| `mobile` (default) | large, suit beside it | one | one big suit | one figure, full bleed |
+| `mobile` (default) | large, suit beside it on one line | one | one big suit | one figure, full bleed |
 | `standard` | as printed, suit under it | two | a true count of pips | both, in a ruled panel |
 | `jumbo` | about 1.5x standard | two | the same count, squeezed | both, a narrower panel |
 
@@ -740,8 +740,12 @@ The panel is 0.66 of the card's width on `standard` and 0.58 on `jumbo`,
 where a real card's is about 0.70. The difference is the index above it: a
 printed rank is roughly half the size of this one, so a real corner is a
 narrow enough column to sit beside a 0.70 panel and this one is not. The
-widest court rank is the Q — 0.75 of the font size in Archivo — and the frame
-has to start outside where that ends, with enough of a gap to see.
+corner is a narrow column and the frame has to start outside where it ends,
+with enough of a gap to see. The column's width is set by the *suit* rather
+than the rank: the suit is drawn as tall as the rank's own box, which is
+bigger than a printed card's, because the four glyphs do not fill their box
+evenly — a spade covers 0.68 of its width where a club covers 0.86 — so a
+suit sized to match paper reads as a shrunken spade on a quarter of the deck.
 
 The framed cut also opens lower than the half one. The source page has a blank
 margin above the figure and below it, which on the mobile face is card under

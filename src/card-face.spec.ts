@@ -130,21 +130,44 @@ describe('the three faces', () => {
     }
   });
 
-  // The suit under the rank has to hold its own against it, and it has to do
-  // so the same way on all three: a corner that gets the proportion right on
-  // one face and not another reads as a shrunken pip rather than as a
-  // different layout. Measured off the mobile face, which is the one this
-  // deck has been looked at most.
-  it('sizes the corner suit against the rank the same way on every face', () => {
-    const shares = FACE_STYLES.map((face) => {
+  // The suit under the rank has to hold its own against it, and the two faces
+  // that stack one have to agree about how much: a corner that gets the
+  // proportion right on one and not the other reads as a shrunken pip rather
+  // than as a different layout.
+  //
+  // The mobile face is left out on purpose. Its suit is on the rank's own
+  // line rather than under it, so the same ratio means a different picture -
+  // beside a glyph, a pip as tall as the font box would overpower it.
+  it('sizes the corner suit against the rank the same way on both stacked faces', () => {
+    const stacked = FACE_STYLES.filter((face) => cardFaceMetrics(60, face).index.stacked);
+    expect(stacked.length).toBe(2);
+    const shares = stacked.map((face) => {
       const m = cardFaceMetrics(60, face);
       return m.index.suitSize / m.index.fontSize;
     });
-    for (const share of shares) {
-      expect(share).toBeGreaterThan(0.68);
-      expect(share).toBeLessThan(0.80);
-    }
     expect(Math.max(...shares) - Math.min(...shares)).toBeLessThan(0.05);
+    // And bigger than the face that sets its suit beside the rank.
+    const beside = cardFaceMetrics(60, 'mobile');
+    expect(Math.min(...shares))
+      .toBeGreaterThan(beside.index.suitSize / beside.index.fontSize);
+  });
+
+  // The suit is now the widest thing in the corner, not the rank, so the
+  // column's own width follows it - and `peek`, which is measured to the
+  // bottom of it, has to follow too.
+  it('measures the peek to the bottom of the stacked suit', () => {
+    for (const face of ['standard', 'jumbo'] as const) {
+      const m = cardFaceMetrics(60, face);
+      const suitBottom = m.index.suitY + m.index.suitSize / 2 + m.height / 2;
+      expect(m.peek).toBeGreaterThan(suitBottom);
+      // And not wastefully more - it is a fanned pile's step.
+      expect(m.peek).toBeLessThan(suitBottom + m.width * 0.08);
+    }
+  });
+
+  it('puts the suit on the rank\'s own line where it is not stacked', () => {
+    const m = cardFaceMetrics(60, 'mobile');
+    expect(m.index.suitY).toBe(m.index.y);
   });
 
   it('scales every face with the card', () => {
@@ -292,7 +315,13 @@ describe('where a court goes', () => {
     for (const face of ['standard', 'jumbo'] as const) {
       const metrics = cardFaceMetrics(60, face);
       const panelLeft = -courtArtRect(metrics, art).width / 2;
-      expect(panelLeft, face).toBeLessThan(metrics.index.x + metrics.index.fontSize);
+      // How far the column reaches: the suit is centred under the rank, so
+      // it is half a rank plus half a suit. The rank's own width is the
+      // browser's to decide, bounded generously at 0.9 of the font size -
+      // the widest court rank measures 0.75.
+      const reach = metrics.index.x
+        + metrics.index.fontSize * 0.9 / 2 + metrics.index.suitSize / 2;
+      expect(panelLeft, face).toBeGreaterThan(reach);
     }
   });
 

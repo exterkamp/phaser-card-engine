@@ -396,13 +396,10 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       .setDisplaySize(index.suitSize, index.suitSize)
       .setAngle(turned ? 180 : 0);
     if (index.stacked) {
-      // Under the rank, centred on it. A printed corner is a narrow column,
-      // and a column is what still shows when a hand is fanned.
-      const gap = index.fontSize * 0.34;
-      suit.setPosition(
-        (index.x + rank.width / 2) * flip,
-        (index.y + index.fontSize * 0.42 + gap) * flip,
-      );
+      // Under the rank and centred on it, at the height the metrics worked
+      // out - `peek` is measured to the bottom of this, so the two have to
+      // agree and only one of them gets to decide.
+      suit.setPosition((index.x + rank.width / 2) * flip, index.suitY * flip);
     } else {
       // Beside it, against the rank's measured width rather than a guess:
       // "10" is half as wide again as "4" and the suit has to sit beside

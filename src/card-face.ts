@@ -57,6 +57,15 @@ export interface CardFaceMetrics {
     gap: number;
     suitSize: number;
     /**
+     * Where the suit's middle sits when it is stacked under the rank.
+     *
+     * Worked out here rather than in the sprite, because `peek` depends on
+     * it: how much of a card has to show is how much of it the corner
+     * occupies, and a corner whose suit grew without the peek following is a
+     * fanned pile that clips its own suits.
+     */
+    suitY: number;
+    /**
      * The suit under the rank rather than beside it.
      *
      * Which is what a printed card does, and what makes a corner narrow
@@ -138,6 +147,7 @@ interface FaceRatios {
   indexSuitSize: number;
   stacked: boolean;
   corners: 1 | 2;
+  /** Only used by the stacked faces; see `stackGap`. */
   // Half-height of the index's actual ink, and the gaps above and below it.
   inkHalfHeight: number;
   inkTopMargin: number;
@@ -151,6 +161,13 @@ interface FaceRatios {
   pips?: { size: number; aceSize: number; inset: number; top: number };
   court: { cut: CourtCut; panel: number };
 }
+
+// Half a rank's cap height, and the air between it and the suit under it -
+// both as fractions of the font size. The cap figure is Archivo's; the gap is
+// chosen, and it is small on purpose, because a printed corner is a tight
+// column and anything roomier reads as two marks rather than as one index.
+const CAP_HALF = 0.36;
+const STACK_GAP = 0.12;
 
 const FACES: Record<FaceStyle, FaceRatios> = {
   mobile: {
@@ -184,20 +201,19 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     indexFontSize: 8 / 60,
     indexLeft: 3 / 60,
     indexGap: 0,
-    // Three quarters of the rank, which is the proportion the mobile face
-    // has and the one this deck has already been judged on. It matters more
-    // than it looks: the suit glyphs do not fill their own box evenly - a
-    // spade covers 0.68 of its width where a club covers 0.86 - so a corner
-    // sized to leave the suit any smaller than this reads as a spade that
-    // has been shrunk, on the one suit of the four you notice it on.
-    indexSuitSize: 6 / 60,
+    // As tall as the rank's own box. Bigger than a printed card's, and
+    // deliberately: the suit glyphs do not fill their box evenly - a spade
+    // covers 0.68 of its width where a club covers 0.86 - so a suit sized to
+    // match the rank on paper reads as a shrunken spade on a quarter of the
+    // deck. This is the size that stops it.
+    indexSuitSize: 8 / 60,
     stacked: true,
     corners: 2,
     inkHalfHeight: 2.9 / 60,
     inkTopMargin: 3.2 / 60,
     // Deep enough to clear the suit under the rank as well as the rank, which
     // is what a two-cornered card has to show before it can be read.
-    inkBottomMargin: 8 / 60,
+    inkBottomMargin: 2.5 / 60,
     pipSize: 34 / 60,
     pipCentreY: 0,
     // Three columns and four rows of them have to fit between the two
@@ -219,7 +235,7 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     // I tried 0.70 first, on the grounds that a real card's corner and frame
     // very nearly touch. They do - but "very nearly" there is a printed
     // hairline's worth, and here it came out as a rank sitting on the rule.
-    court: { cut: 'full', panel: 0.66 },
+    court: { cut: 'full', panel: 0.62 },
   },
   // The deck sold to people who cannot read a standard one across a table:
   // the same card with the corners at about twice the size. The pip field
@@ -229,16 +245,16 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     // Half again as big as the standard index, which is about what the real
     // decks do. Every unit of it is paid for by the pips below.
     indexFontSize: 11 / 60,
-    indexLeft: 2.5 / 60,
+    indexLeft: 2 / 60,
     indexGap: 0,
-    // The same three quarters. A jumbo index is a big rank, not a big rank
-    // over a small suit.
-    indexSuitSize: 8 / 60,
+    // And a size up again from standard's, which is what makes this a jumbo
+    // corner rather than a standard one set in a larger rank.
+    indexSuitSize: 11 / 60,
     stacked: true,
     corners: 2,
     inkHalfHeight: 4.3 / 60,
     inkTopMargin: 3.2 / 60,
-    inkBottomMargin: 10 / 60,
+    inkBottomMargin: 2.5 / 60,
     pipSize: 30 / 60,
     pipCentreY: 0,
     // An index this wide cannot be cleared sideways - there is no room left
@@ -252,7 +268,7 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     // reaches 18.5 units in where the standard face's reaches 21.0. The
     // court gives way, which is the trade this deck exists to make and the
     // same one its pips already made.
-    court: { cut: 'full', panel: 0.58 },
+    court: { cut: 'full', panel: 0.56 },
   },
 };
 
@@ -264,6 +280,15 @@ export function cardFaceMetrics(
   const ratios = FACES[face] ?? FACES[DEFAULT_FACE_STYLE];
   const inkHalf = at(ratios.inkHalfHeight);
   const inkTop = at(ratios.inkTopMargin);
+  const fontSize = at(ratios.indexFontSize);
+  const suitSize = at(ratios.indexSuitSize);
+  // Up from the middle by everything above the ink's own middle.
+  const indexY = -(height / 2 - (inkTop + inkHalf));
+  // Under the rank, clear of it by a hair. Beside it on the mobile face, so
+  // there the suit shares the rank's own line.
+  const suitY = ratios.stacked
+    ? indexY + fontSize * (CAP_HALF + STACK_GAP) + suitSize / 2
+    : indexY;
 
   return {
     face,
@@ -273,11 +298,11 @@ export function cardFaceMetrics(
     pad: at(SHARED.pad),
     index: {
       x: -width / 2 + at(ratios.indexLeft),
-      // Up from the middle by everything above the ink's own middle.
-      y: -(height / 2 - (inkTop + inkHalf)),
-      fontSize: at(ratios.indexFontSize),
+      y: indexY,
+      suitY,
+      fontSize,
       gap: at(ratios.indexGap),
-      suitSize: at(ratios.indexSuitSize),
+      suitSize,
       stacked: ratios.stacked,
     },
     corners: ratios.corners,
@@ -291,9 +316,13 @@ export function cardFaceMetrics(
       bottom: height / 2 - at(ratios.pips.top),
     },
     court: ratios.court,
-    // On a two-cornered card the peek has to clear the suit under the rank as
-    // well as the rank, which is what the bottom margin is carrying here.
-    peek: inkTop + 2 * inkHalf + at(ratios.inkBottomMargin),
+    // What has to show before the corner can be read. On the mobile face that
+    // is the one line of ink and its margins; on a stacked one it is measured
+    // to the bottom of the suit, so that growing the suit moves the peek with
+    // it rather than leaving a fanned pile clipping its own pips.
+    peek: ratios.stacked
+      ? suitY + suitSize / 2 + height / 2 + at(ratios.inkBottomMargin)
+      : inkTop + 2 * inkHalf + at(ratios.inkBottomMargin),
   };
 }
 
