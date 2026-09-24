@@ -231,9 +231,8 @@ its top-left corner to get back to it:
   dealer deals it, each seat holding its cards turned towards itself
 - **hands** at `/hands.html` — a fanned hand you can throw cards into, one
   face up in front of you and one turned round across the table
-- **courts** at `/courts.html` — the twelve court cards, recolored live
-- **colors** at `/colors.html` — the deck color, the ink, what a rule counts
-  a suit as, and what a court does instead: four different questions
+- **deck editor** at `/deck.html` — every color a deck has, over a deck you
+  can step through a rank at a time
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -445,7 +444,7 @@ name only the suits it changes.
 **None of it has to agree with `colorOf`.** A deck may print its hearts in
 green and they go on counting as `'red'` to every rule that asks, because what
 a card is printed in and what a rule calls it were never the same question —
-see `/colors.html`, which lets you set both and watch them disagree.
+see `/deck.html`, which lets you set both and watch them disagree.
 
 ## Courts: a deck is a palette
 
@@ -472,10 +471,10 @@ void renderCourts(this, palette);      // no await
 this.dealEverything();                 // pips now, portraits shortly
 ```
 
-Every demo but `/courts.html` does exactly that. Await it only if you need the
+Every demo but `/deck.html` does exactly that. Await it only if you need the
 first painted frame to already have portraits in it.
 
-**Four of the five inks move.** The source deck is drawn in five colors and
+**Four of the five source inks move**, and a fifth role is added. The source deck is drawn in five colors and
 nothing else. Gold and red are the garment fields; ink is every line on every
 face, hand and lock of hair — 12% of the art but the whole of its drawing, and
 moving it changes a deck's character more than either field does.
@@ -486,6 +485,31 @@ the art reads as a sticker stuck on a white card — which used to mean "never
 move it" and now means "move it with the card". Set `paper` on the palette and
 on the `CardSprite` together, or state it once in the palette and let the card
 take it from there.
+
+### `highlight`, and why a dark deck needs one
+
+The fifth is `highlight`: the white *inside* the drawing — faces, hands,
+linen, the blade of a sword. It has to be separate from `paper`, and the
+reason is not obvious from the art:
+
+**The source has no white skin to recolor.** A face is a *hole* in the
+drawing. Every one of the twelve opens by painting a full-card rounded
+rectangle, and what shows through the gaps in the figure is that rectangle. So
+one color for the card and for the figure's whites means a dark stock takes
+the King's face down with it and leaves line work floating on nothing.
+
+Nothing in the file tells the two apart. What tells them apart is **what they
+touch**: the background runs to the edge of the card and a face does not. So
+the art is rasterized with every white as the `highlight`, and `partBackground`
+floods inward from the border to put the stock back — reaching the background
+and stopping at the first thing the figure draws. Edges are blended rather
+than switched, so the figure keeps its antialiasing instead of gaining a pale
+fringe against a dark stock.
+
+`highlight` defaults to `COURT_PAPER` rather than to `paper`, so a deck that
+only asks for a dark card still gets a face. The flood is skipped entirely
+when the two match, which is every deck that has not asked for them to
+differ.
 
 Black stays put. It is the mass the line work sits on rather than a color
 anything is printed in, and a deck that moves it is a deck whose faces

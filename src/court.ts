@@ -83,8 +83,23 @@ export interface CourtPalette {
   ink: string;
   gold: string;
   red: string;
-  /** The card stock. Defaults to the near-white in COURT_PAPER. */
+  /** The card stock: the card's own background. Defaults to COURT_PAPER. */
   paper?: string;
+  /**
+   * The white *inside* the drawing: faces, hands, linen, the blade of a
+   * sword. Defaults to COURT_PAPER, which is what the source was drawn on.
+   *
+   * Separate from `paper` because a dark deck needs them to be. The source
+   * has no white skin to recolor - a face is a *hole* in the drawing, and
+   * what shows through it is the card's own background. So one color for both
+   * means a dark card takes the King's face with it and leaves line work
+   * floating on nothing.
+   *
+   * The two are told apart by what they touch rather than by anything in the
+   * file: the background reaches the edge of the card and a face does not.
+   * See `partBackground` in phaser/court-art.ts.
+   */
+  highlight?: string;
 }
 
 /** The seven themes. These were seven directories of WebP until they were
@@ -191,6 +206,11 @@ export function courtPaper(palette: CourtPalette): string {
   return palette.paper ?? COURT_PAPER;
 }
 
+/** The white inside the drawing, defaulted. */
+export function courtHighlight(palette: CourtPalette): string {
+  return palette.highlight ?? COURT_PAPER;
+}
+
 /**
  * How tall the finished art is for a given width.
  *
@@ -261,12 +281,15 @@ const PAINT = /((?:fill|stroke)\s*[:=]\s*"?)(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)
  * deck.
  */
 export function recolorCourt(svg: string, palette: CourtPalette): string {
+  // Every white goes to the highlight, the card's background included. The
+  // background is pulled back to the stock afterwards, on the canvas, by
+  // `partBackground` - see there for why it cannot be done here.
   return svg.replace(PAINT, (whole, lead: string, hex: string) => {
     const role = snapCourtInk(hex);
     const want = role === 'ink' ? palette.ink
       : role === 'gold' ? palette.gold
         : role === 'red' ? palette.red
-          : role === 'paper' ? palette.paper
+          : role === 'paper' ? courtHighlight(palette)
             : undefined;
     return want === undefined ? whole : lead + want;
   });

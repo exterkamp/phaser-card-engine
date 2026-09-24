@@ -9,6 +9,7 @@ import {
   COURT_PAPER,
   COURT_SOURCE_INKS,
   courtArtHeight,
+  courtHighlight,
   courtPaper,
   courtCropRect,
   courtSourcePath,
@@ -56,9 +57,9 @@ describe('recoloring', () => {
     expect(out).toContain(press.gold);
   });
 
-  it('leaves black and paper where they are', () => {
-    const out = recolorCourt('<path fill="#000000"/><path fill="#ffffff"/>', press);
-    expect(out).toBe('<path fill="#000000"/><path fill="#ffffff"/>');
+  it('leaves black where it is, whatever else moves', () => {
+    const out = recolorCourt('<path fill="#000000"/><path fill="#000000"/>', press);
+    expect(out).toBe('<path fill="#000000"/><path fill="#000000"/>');
   });
 
   // A color named anywhere but a fill or a stroke is not part of the drawing.
@@ -75,22 +76,58 @@ describe('recoloring', () => {
 });
 
 describe('paper', () => {
-  it('stays the near-white the source was drawn on when nothing says otherwise', () => {
+  // Normalised to the stock rather than left as the source drew it. The
+  // source paints its background #ffffff and the card underneath is #fdfdfd,
+  // a difference nobody can see and one the wipe did not share - it always
+  // painted COURT_PAPER. Now all three agree.
+  it('defaults to the stock the card is drawn on', () => {
     expect(courtPaper(press)).toBe(COURT_PAPER);
-    expect(recolorCourt('<path fill="#ffffff"/>', press)).toBe('<path fill="#ffffff"/>');
+    expect(courtHighlight(press)).toBe(COURT_PAPER);
+    expect(recolorCourt('<path fill="#ffffff"/>', press))
+      .toBe(`<path fill="${COURT_PAPER}"/>`);
   });
 
+  // Setting the stock does not rewrite the drawing's whites - it is the
+  // background alone, and the background is decided on the canvas. What the
+  // palette carries here is the target the flood aims at.
   it('moves when a palette gives it a stock', () => {
     const cream = { ...press, paper: '#f4ecd8' };
     expect(courtPaper(cream)).toBe('#f4ecd8');
-    expect(recolorCourt('<path fill="#ffffff"/>', cream)).toBe('<path fill="#f4ecd8"/>');
+    expect(recolorCourt('<path fill="#ffffff"/>', cream))
+      .toBe(`<path fill="${COURT_PAPER}"/>`);
+  });
+
+  // Every white becomes the highlight here, the card background included.
+  // Telling the background from a face needs to know what each one *touches*
+  // - the background reaches the edge of the card and a face does not - and
+  // that is a fact about pixels, so it happens on the canvas instead. See
+  // partBackground in phaser/court-art.ts.
+  it('sends every white to the highlight, background and all', () => {
+    const dark = { ...press, paper: '#101014', highlight: '#f0d9bd' };
+    const out = recolorCourt(
+      '<rect fill="#ffffff"/><path fill="#ffffff"/><path fill="#ffffff"/>', dark,
+    );
+    expect(out).toBe(
+      '<rect fill="#f0d9bd"/><path fill="#f0d9bd"/><path fill="#f0d9bd"/>',
+    );
+  });
+
+  it('defaults the highlight to the stock, so one color covers both', () => {
+    const dark = { ...press, paper: '#101014' };
+    expect(courtHighlight(dark)).toBe(COURT_PAPER);
+    expect(recolorCourt('<rect fill="#ffffff"/>', dark))
+      .toBe(`<rect fill="${COURT_PAPER}"/>`);
   });
 
   // The strays snap like every other role, or 42% of the art moves and the
   // few hundred antialiased near-whites stay behind as a pale fringe.
+  // The strays snap like every other role, or a few hundred antialiased
+  // near-whites stay behind as a pale fringe when the rest of the drawing
+  // moves.
   it('carries the near-white strays with it', () => {
-    const cream = { ...press, paper: '#f4ecd8' };
-    expect(recolorCourt('<path fill="#fffdff"/>', cream)).toBe('<path fill="#f4ecd8"/>');
+    const skin = { ...press, highlight: '#f0d9bd' };
+    expect(recolorCourt('<path fill="#fffdff"/>', skin)).toBe('<path fill="#f0d9bd"/>');
+    expect(recolorCourt('<path fill="#ffffff"/>', skin)).toBe('<path fill="#f0d9bd"/>');
   });
 
   it('leaves black alone, which is the mass the line work sits on', () => {
@@ -251,5 +288,34 @@ describe('court ranks', () => {
     expect(isCourtRank('K')).toBe(true);
     expect(isCourtRank('10')).toBe(false);
     expect(isCourtRank('A')).toBe(false);
+  });
+});
+
+describe('the background every source opens with', () => {
+  const files = readdirSync(ART).filter((f: string) => f.endsWith('.svg'));
+
+  // recolorCourt tells the stock from the drawing by taking the first white
+  // it meets, which is only right because all twelve open by painting a
+  // full-card rounded rectangle. Eleven do it with a <rect> and the jack of
+  // clubs with a <path> of the same shape - so the rule is "first", not "a
+  // rect", and this is the check that the rule still holds.
+  it('is the first thing painted, and it is white', () => {
+    for (const file of files) {
+      const svg = readFileSync(join(ART, file), 'utf8');
+      const paint = /(?:fill|stroke)\s*[:=]\s*"?(#[0-9a-fA-F]{3,6})\b/.exec(svg);
+      const drawable = /<(rect|path)\b/.exec(svg);
+      expect(paint, file).not.toBeNull();
+      expect(snapCourtInk(paint![1]), file).toBe('paper');
+      expect(paint!.index, file).toBeGreaterThan(drawable!.index);
+    }
+  });
+
+  it('is painted, which is what the flood needs it to be', () => {
+    // If the background were left unpainted the flood would have nothing to
+    // start from and the whole card would come back the highlight.
+    const dark = { ...COURT_PALETTES.press, paper: '#101014', highlight: '#f0d9bd' };
+    const out = recolorCourt(readFileSync(join(ART, 'king-spades.svg'), 'utf8'), dark);
+    expect(out).not.toContain('#101014');
+    expect(out.split('#f0d9bd').length - 1).toBeGreaterThan(5);
   });
 });

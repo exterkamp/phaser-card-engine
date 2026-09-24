@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
   CourtPalette,
+  courtHighlight,
   courtPaper,
   CourtRank,
   COURT_RANKS,
@@ -55,9 +56,10 @@ function sourceSvg(rank: CourtRank, suit: string): Promise<string> {
 export function courtTextureKey(
   palette: CourtPalette, rank: string, suit: string, width: number,
 ): string {
-  const ink = `${palette.ink}${palette.gold}${palette.red}${courtPaper(palette)}`
-    .replace(/#/g, '');
-  return `pce-court-svg-${ink}-${Math.round(width)}-${rank}-${suit}`;
+  const ink = `${palette.ink}${palette.gold}${palette.red}`
+    + `${courtPaper(palette)}${courtHighlight(palette)}`;
+  const key = ink.replace(/#/g, '');
+  return `pce-court-svg-${key}-${Math.round(width)}-${rank}-${suit}`;
 }
 
 /**
@@ -89,12 +91,22 @@ export async function renderCourt(
     if (!pen) throw new Error('court art: no 2d context');
     pen.drawImage(image, 0, 0, source.width, source.height);
 
-    // Then the source's own marks go, in the card's own paper - which has to
-    // be the same paper the board fills the card with, or the wipe reads as a
-    // patch of a slightly different white stuck over the art.
-    pen.fillStyle = courtPaper(palette);
+    // Then the source's own marks go. In the highlight rather than the stock,
+    // because at this point the whole background is the highlight and the
+    // wipe has to join it - a patch of stock here would be an island the
+    // flood below never reaches, and would stay the wrong color if the two
+    // ever differ.
+    const highlight = courtHighlight(palette);
+    const paper = courtPaper(palette);
+    pen.fillStyle = highlight;
     for (const wipe of courtWipeRects(source)) {
       pen.fillRect(wipe.x, wipe.y, wipe.width, wipe.height);
+    }
+
+    // And the background goes back to the stock, where they differ. A deck
+    // that has not asked for the two to differ pays nothing for this.
+    if (paper.toLowerCase() !== highlight.toLowerCase()) {
+      partBackground(pen, source.width, source.height, highlight, paper);
     }
 
     const crop = courtCropRect(source);
@@ -112,6 +124,105 @@ export async function renderCourt(
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+
+/**
+ * Pull the card's background back to the stock, leaving the figure alone.
+ *
+ * The source deck has no white skin to recolor. A face, a beard, the blade of
+ * a sword are *holes* in the drawing, and what shows through them is the
+ * full-card rectangle every one of the twelve opens by painting. One color
+ * for the card and for the figure's own whites therefore means a dark deck
+ * takes the King's face down with it - which is exactly what it looked like.
+ *
+ * Nothing in the file distinguishes the two. What distinguishes them is what
+ * they touch: the background runs to the edge of the card and a face does
+ * not. So the art is rasterised with every white as the highlight, and this
+ * floods inward from the border to put the stock back - reaching the
+ * background and stopping at the first thing the figure draws.
+ *
+ * Scanline rather than per-pixel recursion, because the region is most of the
+ * card and a pixel-at-a-time stack on half a million pixels is both slow and
+ * a way to blow the call stack.
+ *
+ * Edges are blended rather than switched. A pixel halfway between the
+ * highlight and the ink of an outline is halfway repainted, so the figure
+ * keeps its antialiasing instead of gaining a pale fringe against a dark
+ * stock.
+ */
+function partBackground(
+  pen: CanvasRenderingContext2D, width: number, height: number,
+  from: string, to: string,
+): void {
+  const source = cssRgb(from);
+  const target = cssRgb(to);
+  const image = pen.getImageData(0, 0, width, height);
+  const data = image.data;
+  const seen = new Uint8Array(width * height);
+
+  // Generous enough to carry the antialiased ramp, tight enough that it
+  // cannot cross into one of the other four inks - the source is drawn in
+  // five colors and nothing else, so there is a lot of room in between.
+  const REACH = 60;
+  const REACH2 = REACH * REACH;
+
+  const near = (at: number) => {
+    const dr = data[at] - source[0];
+    const dg = data[at + 1] - source[1];
+    const db = data[at + 2] - source[2];
+    return dr * dr + dg * dg + db * db;
+  };
+
+  const repaint = (at: number, distance2: number) => {
+    // Full stock where it matched exactly, tapering out across the ramp.
+    const mix = 1 - Math.sqrt(distance2) / REACH;
+    data[at] += (target[0] - data[at]) * mix;
+    data[at + 1] += (target[1] - data[at + 1]) * mix;
+    data[at + 2] += (target[2] - data[at + 2]) * mix;
+  };
+
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const index = y * width + x;
+    if (seen[index]) return;
+    if (near(index * 4) > REACH2) return;
+    seen[index] = 1;
+    stack.push(index);
+  };
+
+  for (let x = 0; x < width; x++) { push(x, 0); push(x, height - 1); }
+  for (let y = 0; y < height; y++) { push(0, y); push(width - 1, y); }
+
+  while (stack.length) {
+    const index = stack.pop() as number;
+    const y = Math.floor(index / width);
+    let left = index - y * width;
+    let right = left;
+    // Run out to both ends of this span before queueing the neighbours.
+    while (left > 0 && near((y * width + left - 1) * 4) <= REACH2) left--;
+    while (right < width - 1 && near((y * width + right + 1) * 4) <= REACH2) right++;
+    for (let x = left; x <= right; x++) {
+      const at = y * width + x;
+      if (!seen[at]) seen[at] = 1;
+      repaint(at * 4, near(at * 4));
+      if (y > 0) push(x, y - 1);
+      if (y < height - 1) push(x, y + 1);
+    }
+  }
+  pen.putImageData(image, 0, 0);
+}
+
+/** `'#rrggbb'` as three numbers. */
+function cssRgb(css: string): [number, number, number] {
+  const hex = css.replace('#', '');
+  const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  return [
+    Number.parseInt(full.slice(0, 2), 16),
+    Number.parseInt(full.slice(2, 4), 16),
+    Number.parseInt(full.slice(4, 6), 16),
+  ];
 }
 
 export interface RenderCourtsOptions {

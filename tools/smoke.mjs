@@ -89,7 +89,7 @@ await send('Page.navigate', { url: `${root}/` });
 await sleep(700);
 const tiles = JSON.parse(await evaluate(
   `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.getAttribute('href')))`));
-check(tiles.length === 7, `the home screen lists seven demos (${tiles.length})`);
+check(tiles.length === 6, `the home screen lists six demos (${tiles.length})`);
 let reachable = 0;
 let wayBack = 0;
 for (const href of tiles) {
@@ -281,107 +281,78 @@ check(
   'ten cards reach the two hands',
 );
 
-// And the courts, which are the only art rendered rather than loaded: twelve
-// SVG sources recolored and rasterised in the page. The failure mode worth
-// catching is silent - a court whose portrait never arrived falls back to the
-// big centre pip and still looks like a perfectly good card.
-console.log('\nand the courts');
-await send('Page.navigate', { url: `${host.replace(/\/$/, '')}/courts.html` });
-if (!await until(`document.getElementById('note')?.textContent?.includes('ms')`, 90000)) {
-  console.log('  FAIL the courts never rendered');
+// And the deck editor, which is every color decision in one place. Four
+// systems that have to stay independent: the stock, the suit inks, the back,
+// and the court palette. The failure worth catching is one bleeding into
+// another - most of all a suit ink reaching the rules, which would be an
+// editor that lets you recolor a deck into changing how it plays.
+console.log('\nand the deck editor');
+await send('Page.navigate', { url: `${root}/deck.html` });
+if (!await until('!!window.__deck', 30000)) {
+  console.log('  FAIL the deck editor never loaded');
   done(1);
 }
-await sleep(500);
-const courts = 'Object.values(window.__game.scene.keys)[0]';
-const portraits = `(() => {
-  const s = ${courts};
-  const keys = s.cards.flatMap(c => c.list.filter(o => o.type === 'Image').map(o => o.texture.key));
+await sleep(1200);
+const editor = 'Object.values(window.__game.scene.keys)[0]';
+const shown = `(() => {
+  const s = ${editor};
+  const keys = s.cards.map(c => c.list.filter(o => o.type === 'Image').map(o => o.texture.key)).flat();
+  const court = keys.filter(k => k.startsWith('pce-court-svg'));
   return JSON.stringify({
+    rank: s.rank,
     cards: s.cards.length,
-    drawn: keys.filter(k => k.startsWith('pce-court-svg')).length,
-    press: keys.filter(k => k.includes('4a4892')).length,
-    palette: s.palette,
+    courts: court.length,
+    palettes: new Set(court).size,
+    deck: s.deck,
   });
 })()`;
-const pressed = JSON.parse(await evaluate(portraits));
-check(pressed.cards === 12, `all twelve courts on the board (${pressed.cards})`);
-check(pressed.drawn === 12,
-  `every court carries a portrait rather than the pip fallback (${pressed.drawn})`);
 
-// A palette nobody baked has to render its own textures rather than reuse the
-// press ones - the texture key carries the palette for exactly this reason.
-await evaluate(`document.getElementById('random').click()`);
-await until(`JSON.stringify(${courts}.palette) !== ${JSON.stringify(JSON.stringify(pressed.palette))}`, 30000);
-await sleep(3000);
-const invented = JSON.parse(await evaluate(portraits));
-check(invented.drawn === 12, `an invented palette renders all twelve too (${invented.drawn})`);
-check(invented.press === 0, 'and renders its own textures rather than reusing press');
+const ace = JSON.parse(await evaluate(shown));
+check(ace.cards === 15, `five piles of three on the felt (${ace.cards})`);
+check(ace.courts === 0, 'an ace is a pip, so no portrait is rendered for it');
 
-// And the colors page, whose claim is that a card's three colors are three
-// different questions. Four cards agree; the star is the one that does not,
-// and if the three ever collapse into one the page stops meaning anything.
-console.log('\nand the colors');
-await send('Page.navigate', { url: `${root}/colors.html` });
-if (!await until('!!window.__colors', 30000)) {
-  console.log('  FAIL the colors page never loaded');
-  done(1);
+// Step to the King. The whole point of the stepper is reaching the twelve
+// cards that are paintings rather than pips.
+for (let i = 0; i < 12; i++) {
+  await evaluate("document.getElementById('next').click()");
+  await sleep(320);
 }
-await sleep(500);
-const three = JSON.parse(await evaluate('JSON.stringify(window.__colors)'));
-check(three.printed.star === 0xd8a838,
-  `the star is printed in gold, not red or black (#${three.printed.star.toString(16)})`);
-check(three.loose.star === null,
-  'colorOf refuses to guess at a suit it has never heard of');
-check(three.declared.star === 'black',
-  'and the game that declared it says black');
-check(three.loose.hearts === 'red' && three.declared.hearts === 'red'
-  && three.printed.hearts === 0xcf2436,
-  'the four standard suits give the same answer three times over');
+await sleep(1800);
+const king = JSON.parse(await evaluate(shown));
+check(king.rank === 12, `the stepper reaches the King (rank ${king.rank})`);
+check(king.courts === 4,
+  `and all four suits arrive as portraits rather than pips (${king.courts})`);
 
-// Tapping a back has to actually choose it - the hit area on a Container is
-// measured from its display origin, and getting that wrong leaves a card that
-// looks fine and does nothing.
-const colors = 'Object.values(window.__game.scene.keys)[0]';
-const before = await evaluate(`${colors}.chosen`);
-const tap = JSON.parse(await evaluate(`(() => {
-  const s = ${colors}, b = s.backs[2], m = b.getWorldTransformMatrix();
-  const c = document.querySelector('canvas').getBoundingClientRect();
-  return JSON.stringify({
-    x: Math.round(c.left + m.tx * (c.width / window.__game.scale.width)),
-    y: Math.round(c.top + m.ty * (c.height / window.__game.scale.height)),
-  });
-})()`));
-await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: tap.x, y: tap.y, button: 'none' });
-await sleep(150);
-await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tap.x, y: tap.y, button: 'left', clickCount: 1, buttons: 1 });
-await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tap.x, y: tap.y, button: 'left', clickCount: 1 });
-await sleep(400);
-const after = await evaluate(`${colors}.chosen`);
-check(after !== before && after === 0x4f6b38,
-  `tapping a back chooses that deck (#${Number(after).toString(16)})`);
+// Now move every color at once and check each landed where it was sent.
+const wanted = {
+  paper: '#f4ecd8', redink: '#2e8b57', blackink: '#7a3ba8', backcolor: '#7a2e35',
+  'court-ink': '#3b2f6b', 'court-gold': '#d8b471', 'court-red': '#962d30',
+};
+for (const [id, value] of Object.entries(wanted)) {
+  await evaluate(`(() => { const i = document.getElementById('${id}');
+    i.value = '${value}'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await sleep(700);
+}
+await sleep(1800);
+const edited = JSON.parse(await evaluate(shown));
+const hex = (n) => '#' + Number(n).toString(16).padStart(6, '0');
+check(hex(edited.deck.paper) === wanted.paper, `the stock moves (${hex(edited.deck.paper)})`);
+check(hex(edited.deck.redInk) === wanted.redink
+  && hex(edited.deck.blackInk) === wanted.blackink,
+  'both suit inks move');
+check(hex(edited.deck.backColor) === wanted.backcolor,
+  `the deck color moves (${hex(edited.deck.backColor)})`);
+check(edited.deck.court.ink === wanted['court-ink']
+  && edited.deck.court.gold === wanted['court-gold']
+  && edited.deck.court.red === wanted['court-red'],
+  'and the court palette moves');
+check(edited.courts === 4, 'the portraits survive being recolored');
 
-// The court row: three Kings of the same suit that have to be three
-// different paintings. If they collapsed to one texture the row would still
-// look like three cards and would be arguing nothing.
-const kings = JSON.parse(await evaluate(`(() => {
-  const s = ${colors};
-  const keys = s.courts.map(c => c.list
-    .filter(o => o.type === 'Image' && o.texture.key.startsWith('pce-court-svg'))
-    .map(o => o.texture.key)[0]);
-  return JSON.stringify({ shown: keys.filter(Boolean).length, distinct: new Set(keys).size });
-})()`));
-check(kings.shown === 3, `three courts on the colors page (${kings.shown})`);
-check(kings.distinct === 3,
-  `and three different paintings of the same King (${kings.distinct} textures)`);
-
-// Stock. The court is printed on the same paper as the card under it, and
-// the failure this guards is the one the constant was always commented for:
-// a wipe in the old near-white over art on a new stock reads as a patch of a
-// slightly different white stuck onto the card.
-const stock = `(() => {
-  const s = ${colors};
-  const key = s.courts[0].list.filter(o => o.type === 'Image'
-    && o.texture.key.startsWith('pce-court-svg'))[0].texture.key;
+// The court is printed on the card's own stock, or it reads as a sticker.
+const stock = JSON.parse(await evaluate(`(() => {
+  const s = ${editor};
+  const key = s.cards.flatMap(c => c.list.filter(o => o.type === 'Image'
+    && o.texture.key.startsWith('pce-court-svg')))[0].texture.key;
   const src = s.textures.get(key).getSourceImage();
   const c = document.createElement('canvas');
   c.width = src.width; c.height = src.height;
@@ -389,40 +360,56 @@ const stock = `(() => {
   x.drawImage(src, 0, 0);
   const d = x.getImageData(6, 6, 1, 1).data;
   return JSON.stringify({
-    card: '#' + s.paper.toString(16).padStart(6, '0'),
     court: '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''),
   });
-})()`;
-const white = JSON.parse(await evaluate(stock));
-check(white.card === white.court,
-  `the court is printed on the card's own stock (${white.card} / ${white.court})`);
+})()`));
+check(stock.court === wanted.paper,
+  `the courts print on the card's own stock (${stock.court})`);
 
+// A dark deck keeps its faces. The figure's whites are holes in the drawing
+// with the card's background showing through, so one color for the card and
+// the figure means a dark stock takes the King's face with it - which is what
+// it did until the background was parted from the highlight on the canvas.
 await evaluate(`(() => { const i = document.getElementById('paper');
-  i.value = '#f4ecd8'; i.dispatchEvent(new Event('change')); return true; })()`);
-await sleep(2600);
-const cream = JSON.parse(await evaluate(stock));
-check(cream.card === '#f4ecd8', `setting the stock moves the card (${cream.card})`);
-check(cream.court === cream.card,
-  `and moves the court's paper with it (${cream.court})`);
+  i.value = '#0b0b0f'; i.dispatchEvent(new Event('change')); return true; })()`);
+await sleep(3000);
+const dark = JSON.parse(await evaluate(`(() => {
+  const s = ${editor};
+  const key = s.cards.flatMap(c => c.list.filter(o => o.type === 'Image'
+    && o.texture.key.startsWith('pce-court-svg')))[0].texture.key;
+  const src = s.textures.get(key).getSourceImage();
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  const x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  const corner = x.getImageData(6, 6, 1, 1).data;
+  const all = x.getImageData(0, 0, src.width, src.height).data;
+  let pale = 0;
+  for (let i = 0; i < all.length; i += 4) {
+    if (all[i] > 220 && all[i + 1] > 215 && all[i + 2] > 205) pale++;
+  }
+  return JSON.stringify({
+    corner: '#' + [corner[0], corner[1], corner[2]]
+      .map(v => v.toString(16).padStart(2, '0')).join(''),
+    pale: pale / (src.width * src.height),
+  });
+})()`));
+check(dark.corner === '#0b0b0f',
+  `a dark stock reaches the court's background (${dark.corner})`);
+check(dark.pale > 0.04,
+  `and the figure keeps its face, hands and linen (${(dark.pale * 100).toFixed(1)}% pale)`);
 
-// And the ink, which is allowed to disagree with the rule - on both pairs,
-// since a deck that can recolor its reds and not its blacks is half a
-// feature.
-for (const [id, want] of [['redink', '#2e8b57'], ['blackink', '#3b2f6b']]) {
-  await evaluate(`(() => { const i = document.getElementById('${id}');
-    i.value = '${want}'; i.dispatchEvent(new Event('change')); return true; })()`);
-  await sleep(2600);
-}
-const inked = JSON.parse(await evaluate(`JSON.stringify({
-  red: '#' + ${colors}.redInk.toString(16).padStart(6, '0'),
-  black: '#' + ${colors}.blackInk.toString(16).padStart(6, '0'),
-  redRule: window.__colors.loose.hearts,
-  blackRule: window.__colors.loose.spades,
-})`));
-check(inked.red === '#2e8b57', `hearts can be printed in any ink (${inked.red})`);
-check(inked.black === '#3b2f6b', `and so can spades (${inked.black})`);
-check(inked.redRule === 'red' && inked.blackRule === 'black',
-  'and both go on counting as they did, because that was never the same question');
+// And none of it reached the rules.
+const rules = JSON.parse(await evaluate('JSON.stringify(window.__deck.rules)'));
+check(rules.hearts === 'red' && rules.spades === 'black',
+  'and no amount of recoloring changes what a suit counts as');
+
+// Reset has to actually restore, or the editor is a one-way trip.
+await evaluate("document.getElementById('reset').click()");
+await sleep(1600);
+const back = JSON.parse(await evaluate(shown));
+check(hex(back.deck.paper) === '#fdfdfd' && hex(back.deck.redInk) === '#cf2436',
+  'reset puts the deck back');
 
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
