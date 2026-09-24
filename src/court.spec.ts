@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DECK_THEMES } from './deck-theme.js';
 import {
+  COURT_BACKGROUND_SEEDS,
   COURT_PALETTES,
   COURT_RANKS,
   COURT_SOURCE,
@@ -11,6 +12,7 @@ import {
   courtArtHeight,
   courtHighlight,
   courtPaper,
+  courtSeeds,
   courtCropRect,
   courtSourcePath,
   courtSourceSize,
@@ -192,6 +194,40 @@ describe('the window taken out of the source', () => {
     const crop = courtCropRect(source);
     expect(index.x).toBeGreaterThanOrEqual(0);
     expect(index.y + index.height).toBeLessThan(crop.y + crop.height);
+  });
+});
+
+describe('the background seeds', () => {
+  // Two hand-placed points, which is two more than anybody wants. They are
+  // only defensible while they name real cards and sit inside the picture -
+  // a seed that misses lands on the figure and takes a face.
+  it('names cards that exist', () => {
+    for (const key of Object.keys(COURT_BACKGROUND_SEEDS)) {
+      const [rank, suit] = key.split('-');
+      expect(isCourtRank(rank), key).toBe(true);
+      expect(['spades', 'hearts', 'diamonds', 'clubs'], key).toContain(suit);
+    }
+  });
+
+  it('sits inside the art, away from its edges', () => {
+    for (const [key, seeds] of Object.entries(COURT_BACKGROUND_SEEDS)) {
+      for (const seed of seeds) {
+        expect(seed.x, key).toBeGreaterThan(0.02);
+        expect(seed.x, key).toBeLessThan(0.98);
+        expect(seed.y, key).toBeGreaterThan(0.02);
+        expect(seed.y, key).toBeLessThan(0.98);
+      }
+    }
+  });
+
+  it('gives nothing for a card that needs nothing', () => {
+    expect(courtSeeds('K', 'spades')).toEqual([]);
+    expect(courtSeeds('Q', 'hearts')).toEqual([]);
+  });
+
+  it('gives the recorded seeds for the two that do', () => {
+    expect(courtSeeds('J', 'clubs')).toHaveLength(1);
+    expect(courtSeeds('K', 'hearts')).toHaveLength(1);
   });
 });
 

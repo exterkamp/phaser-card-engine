@@ -212,6 +212,41 @@ export function courtHighlight(palette: CourtPalette): string {
 }
 
 /**
+ * Background the edges of the art cannot reach, as fractions of the finished
+ * picture.
+ *
+ * Telling the card's background from the figure's own whites is done by where
+ * they connect, and on two of the twelve there is a piece of background that
+ * connects to nothing: the band to the right of the jack of clubs' head, and
+ * the sliver between the king of hearts' hair and his sword. Both are walled
+ * in by the figure on every side and by the crop on none.
+ *
+ * No rule found them, and the reason is that no rule can. A face is a hole in
+ * the drawing and so is one of these; they are the same thing to anything
+ * that looks at shape or connection, which is why a flood that reaches these
+ * also eats the queen of hearts' face. What separates them is knowing what
+ * the picture is *of*.
+ *
+ * So they are written down. These twelve files are public-domain art from
+ * 2012 that has not changed and will not, in the same way the crop window
+ * above is measured off them rather than computed - and if one is ever
+ * replaced, `court.spec.ts` checks that every seat here still lands on
+ * something pale.
+ */
+export const COURT_BACKGROUND_SEEDS: Readonly<Record<string, readonly CourtSeed[]>> = {
+  'J-clubs': [{ x: 0.850, y: 0.380 }],
+  'K-hearts': [{ x: 0.769, y: 0.362 }],
+};
+
+/** A place in the finished art, as fractions of its width and height. */
+export interface CourtSeed { x: number; y: number }
+
+/** The seeds for one card, in fractions of the finished art. */
+export function courtSeeds(rank: string, suit: string): readonly CourtSeed[] {
+  return COURT_BACKGROUND_SEEDS[`${rank}-${suit}`] ?? [];
+}
+
+/**
  * How tall the finished art is for a given width.
  *
  * Taken from the crop's own proportions rather than fixed. The window is

@@ -8,6 +8,7 @@ import {
   courtArtHeight,
   courtCropRect,
   courtSourcePath,
+  courtSeeds,
   courtSourceSize,
   courtWipeRects,
   prepareCourt,
@@ -119,7 +120,8 @@ export async function renderCourt(
     // headdress is closed at the page but open at the edge of the cut - so
     // running this on the finished art is what lets the edges reach it.
     if (paper.toLowerCase() !== highlight.toLowerCase()) {
-      partBackground(cut, out.width, out.height, highlight, paper);
+      partBackground(cut, out.width, out.height, highlight, paper,
+        courtSeeds(rank, suit));
     }
 
     // addCanvas rather than addImage: the canvas is the texture's own source,
@@ -166,7 +168,7 @@ export async function renderCourt(
  */
 function partBackground(
   pen: CanvasRenderingContext2D, width: number, height: number,
-  from: string, to: string,
+  from: string, to: string, extra: readonly { x: number; y: number }[] = [],
 ): void {
   const source = cssRgb(from);
   const target = cssRgb(to);
@@ -224,6 +226,11 @@ function partBackground(
   // the art bleeds off the card there.
   for (let cx = 0; cx < columns; cx++) seed(cx, 0);
   for (let cy = 0; cy < rows * SIDES; cy++) { seed(0, cy); seed(columns - 1, cy); }
+  // And the places on two of the twelve that no edge can reach. See
+  // COURT_BACKGROUND_SEEDS.
+  for (const point of extra) {
+    seed(Math.floor((point.x * width) / CELL), Math.floor((point.y * height) / CELL));
+  }
   while (cells.length) {
     const cell = cells.pop() as number;
     const cx = cell % columns;

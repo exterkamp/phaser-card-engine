@@ -515,6 +515,16 @@ grown back a bounded handful of pixels at full resolution to take the rim the
 grid left — bounded, because a growth that cannot run more than `GROW` pixels
 cannot cross a figure to reach a face however the drawing is shaped.
 
+**Two places are written down.** On the jack of clubs and the king of hearts
+there is background walled in by the figure on every side — the band right of
+his head, the sliver between his hair and his sword. No rule finds them, and
+the reason is that no rule can: a face is a hole in the drawing and so is one
+of these, identical to anything looking at shape or connection. A flood
+reaching these also eats the queen of hearts' face, which was measured, not
+guessed. So `COURT_BACKGROUND_SEEDS` names them, in the same spirit as the
+crop window above — these twelve files are public-domain art that has not
+changed since 2012 and will not.
+
 It runs on the **cropped** art rather than the whole page, and starts from the
 top edge plus the upper part of the sides. Some background is walled off from
 the card's margin by the figure itself — the wedge under the Queen of clubs'

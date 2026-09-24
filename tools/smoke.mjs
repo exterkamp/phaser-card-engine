@@ -445,6 +445,26 @@ const stranded = JSON.parse(await evaluate(`(() => {
 check(stranded.length === 4 && stranded.every((n) => n < 40),
   `no background stranded along the edges of the art (${stranded.join(', ')} px)`);
 
+// The two hand-placed seeds. This is the check that they still land where
+// they were put: the king of hearts has a sliver of background between his
+// hair and his sword that nothing reaches on its own, and at the King rank he
+// is on screen.
+const seeded = await evaluate(`(() => {
+  const s = ${editor};
+  const sprite = s.cards.find(c => c.card.suit === 'hearts' && c.card.rank === 'K');
+  const key = sprite.list.filter(o => o.type === 'Image'
+    && o.texture.key.startsWith('pce-court-svg'))[0].texture.key;
+  const src = s.textures.get(key).getSourceImage();
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  const x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  const d = x.getImageData(Math.round(0.769 * src.width), Math.round(0.362 * src.height), 1, 1).data;
+  return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+})()`);
+check(seeded === '#0b0b0f',
+  `the hand-placed seed still reaches its patch of background (${seeded})`);
+
 // And none of it reached the rules.
 const rules = JSON.parse(await evaluate('JSON.stringify(window.__deck.rules)'));
 check(rules.hearts === 'red' && rules.spades === 'black',
