@@ -405,17 +405,24 @@ check(cream.card === '#f4ecd8', `setting the stock moves the card (${cream.card}
 check(cream.court === cream.card,
   `and moves the court's paper with it (${cream.court})`);
 
-// And the ink, which is allowed to disagree with the rule.
-await evaluate(`(() => { const i = document.getElementById('suitink');
-  i.value = '#2e8b57'; i.dispatchEvent(new Event('change')); return true; })()`);
-await sleep(2600);
-const green = JSON.parse(await evaluate(`JSON.stringify({
-  ink: '#' + ${colors}.redInk.toString(16).padStart(6, '0'),
-  rule: window.__colors.loose.hearts,
+// And the ink, which is allowed to disagree with the rule - on both pairs,
+// since a deck that can recolor its reds and not its blacks is half a
+// feature.
+for (const [id, want] of [['redink', '#2e8b57'], ['blackink', '#3b2f6b']]) {
+  await evaluate(`(() => { const i = document.getElementById('${id}');
+    i.value = '${want}'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await sleep(2600);
+}
+const inked = JSON.parse(await evaluate(`JSON.stringify({
+  red: '#' + ${colors}.redInk.toString(16).padStart(6, '0'),
+  black: '#' + ${colors}.blackInk.toString(16).padStart(6, '0'),
+  redRule: window.__colors.loose.hearts,
+  blackRule: window.__colors.loose.spades,
 })`));
-check(green.ink === '#2e8b57', `hearts can be printed in any ink (${green.ink})`);
-check(green.rule === 'red',
-  'and go on counting as red, because that was never the same question');
+check(inked.red === '#2e8b57', `hearts can be printed in any ink (${inked.red})`);
+check(inked.black === '#3b2f6b', `and so can spades (${inked.black})`);
+check(inked.redRule === 'red' && inked.blackRule === 'black',
+  'and both go on counting as they did, because that was never the same question');
 
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');

@@ -54,6 +54,10 @@ type DeckSuit = Suit | 'star';
 
 const BACK_NAMES = ['petrol', 'oxblood', 'moss', 'plum', 'navy', 'tobacco'];
 const FACES: DeckSuit[] = ['spades', 'hearts', 'diamonds', 'clubs', 'star'];
+// The two pairs a rule groups together. The star is in neither, and keeps the
+// gold this package falls back to for a suit it has never heard of.
+const REDS = ['hearts', 'diamonds'] as const;
+const BLACKS = ['spades', 'clubs'] as const;
 
 // Three of the seven, far enough apart to make the point in one row.
 const COURT_DECKS: DeckTheme[] = ['press', 'felt', 'royal'];
@@ -72,11 +76,12 @@ class Colors extends Phaser.Scene {
   private courts: CardSprite[] = [];
   private chosen = DEFAULT_BACK_COLOR;
   private marker!: Phaser.GameObjects.Graphics;
-  // The two things this page lets you set. Neither is a rule: the stock is
-  // what the face is printed on, and the ink is what the red suits are
-  // printed in - which they are allowed to be while still counting as red.
+  // What this page lets you set, none of which is a rule: the stock the face
+  // is printed on, and the ink each pair of suits is printed in - which they
+  // are free to be while going on counting as red and black.
   private paper = 0xfdfdfd;
   private redInk = defaultInk('hearts');
+  private blackInk = defaultInk('spades');
 
   preload(): void {
     // The star is not a playing-card suit and the package does not assume it.
@@ -103,14 +108,18 @@ class Colors extends Phaser.Scene {
       });
     }
 
-    const suit = document.getElementById('suitink') as HTMLInputElement | null;
-    if (suit) {
-      suit.value = colorCss(this.redInk);
-      suit.addEventListener('change', () => {
-        this.redInk = cssColor(suit.value);
+    // Both pairs, and the pair is the point: what changes here is two suits
+    // that a rule groups together, and the grouping survives the repaint.
+    for (const [id, pair] of [['redink', REDS], ['blackink', BLACKS]] as const) {
+      const input = document.getElementById(id) as HTMLInputElement | null;
+      if (!input) continue;
+      input.value = colorCss(id === 'redink' ? this.redInk : this.blackInk);
+      input.addEventListener('change', () => {
+        if (id === 'redink') this.redInk = cssColor(input.value);
+        else this.blackInk = cssColor(input.value);
         this.build();
-        this.say(`Hearts and diamonds printed in ${suit.value} — and still `
-          + `${colorOf('hearts')} to every rule that asks.`);
+        this.say(`${pair[0]} and ${pair[1]} printed in ${input.value} — and still `
+          + `${colorOf(pair[0])} to every rule that asks.`);
       });
     }
 
@@ -145,7 +154,7 @@ class Colors extends Phaser.Scene {
     this.layFaces();
     this.heading(574, 'And a court is none of the above');
     this.label(240, 596,
-      'the same King three times. Nothing here is the spade\u2019s black.', '#7f9f88');
+      'the same King three times. None of it is the spade\u2019s ink.', '#7f9f88');
     this.layCourts();
     this.choose(this.chosen);
   }
@@ -155,9 +164,12 @@ class Colors extends Phaser.Scene {
     return { ...COURT_PALETTES[theme], paper: colorCss(this.paper) };
   }
 
-  /** What the red suits are printed in, which is a choice and not a rule. */
+  /** What each suit is printed in, which is a choice and not a rule. */
   private ink(): Record<string, number> {
-    return { hearts: this.redInk, diamonds: this.redInk };
+    return {
+      hearts: this.redInk, diamonds: this.redInk,
+      spades: this.blackInk, clubs: this.blackInk,
+    };
   }
 
   private layBacks(): void {
@@ -221,9 +233,9 @@ class Colors extends Phaser.Scene {
    *
    * A number card is drawn by this package - a pip in the suit's ink - and a
    * court is not. A court is a painting recolored out of `COURT_PALETTES`,
-   * which is why the King of spades below is red and gold and blue and none
-   * of them is the black that `colorOf('spades')` returns. The two systems
-   * never meet; the full set is on the courts page.
+   * which is why the King of spades below stays red and gold and blue however
+   * the spade's own ink is set. The two systems never meet; the full set is
+   * on the courts page.
    */
   private layCourts(): void {
     COURT_DECKS.forEach((theme, i) => {
