@@ -93,16 +93,23 @@ const root = host.replace(/\/$/, '');
 console.log(`smoking ${host}`);
 await send('Page.navigate', { url: `${root}/` });
 await sleep(700);
+// Resolved rather than concatenated, and that is the point of it: the links
+// are relative so the same build works at the root of a dev server and under
+// a project path on GitHub Pages. Reading `href` gives the browser's own
+// answer for where each one actually goes.
 const tiles = JSON.parse(await evaluate(
-  `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.getAttribute('href')))`));
+  `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.href))`));
 check(tiles.length === 6, `the home screen lists six demos (${tiles.length})`);
 let reachable = 0;
 let wayBack = 0;
 for (const href of tiles) {
-  await send('Page.navigate', { url: root + href });
+  await send('Page.navigate', { url: href });
   await sleep(900);
   if (await evaluate(`!!document.querySelector('h1')`)) reachable++;
-  if (await evaluate(`document.querySelector('a.home')?.getAttribute('href') === '/'`)) wayBack++;
+  // The way back has to land on the index this page was reached from, which
+  // is the directory the page is in - not the root of the host.
+  if (await evaluate(`(() => { const a = document.querySelector('a.home');
+    return !!a && a.href === location.href.replace(/[^/]*$/, ''); })()`)) wayBack++;
 }
 check(reachable === tiles.length, `every tile opens a page (${reachable}/${tiles.length})`);
 check(wayBack === tiles.length, `every page has a way back (${wayBack}/${tiles.length})`);

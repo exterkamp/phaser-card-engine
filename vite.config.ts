@@ -8,6 +8,11 @@ import { resolve } from 'node:path';
 // this package asks of a consumer, tested here by being a consumer.
 export default defineConfig({
   root: 'demo',
+  // `/` for the dev server and for `npm run demo:serve`; the project path
+  // when GitHub Pages builds it, where the site is not at the root of a
+  // host. demo/serve.ts hands the same value to the engine so the card art
+  // moves with the pages.
+  base: process.env['DEMO_BASE'] ?? '/',
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
     // The subpath first: these are prefix matches, so the bare name would

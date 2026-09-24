@@ -1,3 +1,4 @@
+import { cardAssetBase } from './assets.js';
 import { DeckTheme } from './deck-theme.js';
 import { Rect } from './stack.js';
 
@@ -34,10 +35,10 @@ export function isCourtRank(rank: string): rank is CourtRank {
 /**
  * Where a court source lives once the assets are served.
  *
- * Same contract as deckThemePath: copy `assets/cards` to `/cards`.
+ * Same contract as deckThemePath: under `cardAssetBase()`.
  */
 export function courtSourcePath(rank: CourtRank, suit: string): string {
-  return `/cards/court/${COURT_FILE_RANK[rank]}-${suit}.svg`;
+  return `${cardAssetBase()}/court/${COURT_FILE_RANK[rank]}-${suit}.svg`;
 }
 
 // --- the five inks ------------------------------------------------------

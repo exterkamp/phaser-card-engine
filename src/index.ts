@@ -19,4 +19,5 @@ export * from './shuffle.js';
 export * from './deck-theme.js';
 export * from './court.js';
 export * from './ink.js';
+export * from './assets.js';
 export * from './fonts.js';

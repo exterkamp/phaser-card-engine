@@ -38,6 +38,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colors and the guards that keep a bad value out of storage |
 | `ink.ts` | `defaultInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
+| `assets.ts` | `cardAssetBase`, `setCardAssetBase` — where the card art is served from, for a site that is not at the root of a host |
 | `court.ts` | `COURT_PALETTES`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
 | `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the seven card backs, and the suit glyphs |
@@ -219,6 +220,10 @@ tested. Phaser's job is to draw a card at the point this hands it.
 npm install
 npm run demo        # http://localhost:4390, and the LAN address it prints
 ```
+
+It is published at
+**<https://exterkamp.github.io/phaser-card-engine/>** on every push to main,
+by `.github/workflows/pages.yml`.
 
 `/` is an index of the six pages, and every page has a **← Demos** button in
 its top-left corner to get back to it:
@@ -681,7 +686,17 @@ diverge hardest.
 ## Consuming the assets
 
 The code assumes the art is served from `/cards`, which is what
-`deckThemePath` and `courtSourcePath` both return. In an Angular app, add the package's asset directory
+`deckThemePath` and `courtSourcePath` both return. If your site is not at the
+root of a host — a project page on GitHub Pages, say — call
+`setCardAssetBase()` once before anything loads art:
+
+```ts
+setCardAssetBase(`${import.meta.env.BASE_URL}cards`);   // vite
+```
+
+That is the one failure a build cannot catch, because the build is where the
+wrong path gets produced: an absolute `/cards/court/king-spades.svg` is a 404
+at somebody else's site. The demo does exactly the above in `demo/serve.ts`. In an Angular app, add the package's asset directory
 to `angular.json` rather than copying the files in:
 
 ```json

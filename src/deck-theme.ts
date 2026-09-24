@@ -1,3 +1,4 @@
+import { cardAssetBase } from './assets.js';
 // The decks a player can hold. Each is a whole palette - the courts' line
 // work and garment colors, and a card back with its own field, medallion and
 // border.
@@ -55,12 +56,12 @@ export function asDeckTheme(value: unknown): DeckTheme {
 /**
  * Where a theme's art lives once the assets are served.
  *
- * Absolute from the site root, and that is the contract this package asks of
- * a consumer: copy `assets/cards` to `/cards` when you build. Both games
- * already serve it from exactly there - see the README.
+ * Under `cardAssetBase()`, which is `/cards` unless a consumer has said
+ * otherwise: copy `assets/cards` there when you build. Both games serve it
+ * from exactly that - see the README.
  */
 export function deckThemePath(theme: DeckTheme, file: string): string {
-  return `/cards/art/${theme}/${file}`;
+  return `${cardAssetBase()}/art/${theme}/${file}`;
 }
 
 /**

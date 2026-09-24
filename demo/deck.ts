@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import './serve';
 import {
   BACK_COLORS,
   BODY_FONT,

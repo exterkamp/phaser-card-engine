@@ -16,6 +16,7 @@ import {
   cardFaceMetrics,
   courtArtRect,
   SuitInk,
+  cardAssetBase,
   cssColor,
   deckThemePath,
   inkOf,
@@ -75,7 +76,8 @@ export function preloadCardArt(scene: Phaser.Scene, options: CardArtOptions = {}
 
   for (const [suit, file] of Object.entries(suitArt)) {
     if (!scene.textures.exists(suitKey(suit))) {
-      scene.load.svg(suitKey(suit), `/cards/suits/${file}.svg`, { width: 200, height: 200 });
+      scene.load.svg(suitKey(suit), `${cardAssetBase()}/suits/${file}.svg`,
+        { width: 200, height: 200 });
     }
   }
   // Backs only. The courts are not bitmaps any more - they are rendered from

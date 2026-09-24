@@ -27,7 +27,7 @@ describe('deck themes', () => {
   });
 
   it('points at the art where a consumer is asked to serve it', () => {
-    expect(deckThemePath('felt', 'king-spades.webp')).toBe('/cards/art/felt/king-spades.webp');
+    expect(deckThemePath('felt', 'back.webp')).toBe('/cards/art/felt/back.webp');
   });
 });
 

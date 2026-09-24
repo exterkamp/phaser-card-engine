@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import './serve';
 import {
   CARD_HEIGHT,
   CARD_WIDTH,
