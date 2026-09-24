@@ -20,9 +20,18 @@
         text-transform: uppercase; color: #fdfdfd; background: #17594a;
         border: 1px solid #cfead0; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
       }
+      .home {
+        position: fixed; top: 0.55rem; left: 0.6rem; z-index: 20;
+        font-family: 'Cinzel', Georgia, serif; font-size: 0.66rem;
+        letter-spacing: 0.05em; text-transform: uppercase; text-decoration: none;
+        color: #fdfdfd; background: #17594a; border: 1px solid #cfead0;
+        border-radius: 4px; padding: 0.28rem 0.5rem; line-height: 1;
+      }
+      .home:hover, .home:focus-visible { border-color: #ffd166; color: #ffd166; }
     </style>
   </head>
   <body>
+    <a class="home" href="/">&larr; Demos</a>
     <h1>Hands</h1>
     <p>
       A <code>Hand</code> is not a stack: the cards pivot around the grip below
@@ -38,11 +47,6 @@
       <button id="curve">Curve</button>
       <button id="spread">Spread</button>
       <button id="reset">Reset</button>
-    </div>
-    <div class="row">
-      <a href="/holdem.html">hold'em →</a>
-      <a href="/throws.html">throwing →</a>
-      <a href="/">stacks →</a>
     </div>
     <script type="module" src="./hands.ts"></script>
   </body>

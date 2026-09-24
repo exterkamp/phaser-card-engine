@@ -79,8 +79,29 @@ await send('Emulation.setDeviceMetricsOverride', {
   width: 412, height: 915, deviceScaleFactor: 2, mobile: true,
 });
 
+const root = host.replace(/\/$/, '');
+
+// The index of demos, and the way back from each of them. A page renamed
+// without its tile, or a demo added without one, breaks nothing that throws -
+// it just quietly becomes unreachable.
 console.log(`smoking ${host}`);
-await send('Page.navigate', { url: host });
+await send('Page.navigate', { url: `${root}/` });
+await sleep(700);
+const tiles = JSON.parse(await evaluate(
+  `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.getAttribute('href')))`));
+check(tiles.length === 6, `the home screen lists six demos (${tiles.length})`);
+let reachable = 0;
+let wayBack = 0;
+for (const href of tiles) {
+  await send('Page.navigate', { url: root + href });
+  await sleep(900);
+  if (await evaluate(`!!document.querySelector('h1')`)) reachable++;
+  if (await evaluate(`document.querySelector('a.home')?.getAttribute('href') === '/'`)) wayBack++;
+}
+check(reachable === tiles.length, `every tile opens a page (${reachable}/${tiles.length})`);
+check(wayBack === tiles.length, `every page has a way back (${wayBack}/${tiles.length})`);
+
+await send('Page.navigate', { url: `${root}/stacks.html` });
 if (!await until('!!window.__game && Object.values(window.__game.scene.keys)[0].piles?.length')) {
   console.log('  FAIL the board never appeared');
   done(1);

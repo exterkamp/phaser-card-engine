@@ -20,9 +20,18 @@
         text-transform: uppercase; color: #fdfdfd; background: #17594a;
         border: 1px solid #cfead0; border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer;
       }
+      .home {
+        position: fixed; top: 0.55rem; left: 0.6rem; z-index: 20;
+        font-family: 'Cinzel', Georgia, serif; font-size: 0.66rem;
+        letter-spacing: 0.05em; text-transform: uppercase; text-decoration: none;
+        color: #fdfdfd; background: #17594a; border: 1px solid #cfead0;
+        border-radius: 4px; padding: 0.28rem 0.5rem; line-height: 1;
+      }
+      .home:hover, .home:focus-visible { border-color: #ffd166; color: #ffd166; }
     </style>
   </head>
   <body>
+    <a class="home" href="/">&larr; Demos</a>
     <h1>Throwing cards</h1>
     <p>
       <strong>Tap anywhere on the felt</strong> to throw a card at that spot, or
@@ -35,10 +44,6 @@
       <button id="deal">Deal a hand</button>
       <button id="spins">Spins: 1</button>
       <button id="gather">Gather up</button>
-      <a href="/hands.html">hands →</a>
-      <a href="/">stacks →</a>
-      <a href="/holdem.html">hold'em →</a>
-      <a href="/sizes.html">sizes →</a>
     </div>
     <script type="module" src="./throws.ts"></script>
   </body>
