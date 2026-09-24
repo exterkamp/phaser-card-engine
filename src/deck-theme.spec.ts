@@ -1,6 +1,9 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BACK_COLORS,
+  DECK_STOCK,
   DECK_THEMES,
   DECK_THEME_LABELS,
   DEFAULT_BACK_COLOR,
@@ -20,14 +23,69 @@ describe('deck themes', () => {
   });
 
   it('falls back rather than letting an unknown name through', () => {
-    expect(asDeckTheme('royal')).toBe('royal');
+    expect(asDeckTheme('press')).toBe('press');
     expect(asDeckTheme('nonsense')).toBe(DEFAULT_DECK_THEME);
     expect(asDeckTheme(undefined)).toBe(DEFAULT_DECK_THEME);
     expect(asDeckTheme(7)).toBe(DEFAULT_DECK_THEME);
   });
 
+  // The names of three decks that used to exist. A theme name is a storage
+  // format - it sits in a player's localStorage and in a lobby's wire
+  // traffic - so retiring one is not just deleting a line: somebody out
+  // there is still holding it, and what they must get is the default rather
+  // than a 404 on a texture and a card with no art at all.
+  it('retires a deck without stranding whoever was holding it', () => {
+    for (const gone of ['felt', 'royal', 'steel']) {
+      expect(asDeckTheme(gone)).toBe(DEFAULT_DECK_THEME);
+    }
+  });
+
   it('points at the art where a consumer is asked to serve it', () => {
-    expect(deckThemePath('felt', 'back.webp')).toBe('/cards/art/felt/back.webp');
+    expect(deckThemePath('antique', 'back.webp')).toBe('/cards/art/antique/back.webp');
+  });
+
+  // The back is the one picture of a card this package still ships, and a
+  // theme listed without one is a face-down card with nothing on it. Cheap
+  // to check and the only thing standing between a new deck and that.
+  it('ships a back for every theme, and no backs for decks that are gone', () => {
+    const art = join(import.meta.dirname, '..', 'assets', 'cards', 'art');
+    for (const theme of DECK_THEMES) {
+      expect(existsSync(join(art, theme, 'back.webp'))).toBe(true);
+    }
+    for (const gone of ['felt', 'royal', 'steel']) {
+      expect(existsSync(join(art, gone))).toBe(false);
+    }
+  });
+});
+
+describe('the stock a deck is printed on', () => {
+  it('names one for every theme and no more', () => {
+    expect(Object.keys(DECK_STOCK).sort()).toEqual([...DECK_THEMES].sort());
+  });
+
+  // Solitaire is alternating colours from end to end. A deck whose two inks
+  // are hard to sort is a deck that cannot be played, and the decks most at
+  // risk are the ones that abandoned red and black altogether.
+  it('suggests a back color that is one of the deck colors', () => {
+    for (const theme of DECK_THEMES) {
+      expect((BACK_COLORS as readonly number[])).toContain(DECK_STOCK[theme].back);
+    }
+  });
+
+  it('keeps the two inks apart on every deck', () => {
+    const luma = (c: number) =>
+      0.299 * ((c >> 16) & 0xff) + 0.587 * ((c >> 8) & 0xff) + 0.114 * (c & 0xff);
+    for (const theme of DECK_THEMES) {
+      const { paper, red, black } = DECK_STOCK[theme];
+      // The two suits, from each other.
+      const apart = Math.abs(((red >> 16) & 0xff) - ((black >> 16) & 0xff))
+        + Math.abs(((red >> 8) & 0xff) - ((black >> 8) & 0xff))
+        + Math.abs((red & 0xff) - (black & 0xff));
+      expect(apart).toBeGreaterThan(90);
+      // And both of them from the stock they are printed on.
+      expect(Math.abs(luma(red) - luma(paper))).toBeGreaterThan(60);
+      expect(Math.abs(luma(black) - luma(paper))).toBeGreaterThan(60);
+    }
   });
 });
 

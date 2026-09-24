@@ -296,9 +296,9 @@ describe('the source files on disk', () => {
 
   it('comes out recolored, scalable and still valid', () => {
     const svg = readFileSync(join(ART, 'queen-hearts.svg'), 'utf8');
-    const out = prepareCourt(svg, COURT_PALETTES.felt);
+    const out = prepareCourt(svg, COURT_PALETTES.antique);
     expect(out).toContain('viewBox');
-    expect(out).toContain(COURT_PALETTES.felt.ink);
+    expect(out).toContain(COURT_PALETTES.antique.ink);
     expect(out).not.toMatch(/fill="#5555aa"/);
     expect(out.startsWith('<?xml')).toBe(true);
   });

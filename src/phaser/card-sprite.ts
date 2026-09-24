@@ -6,6 +6,7 @@ import {
   Card,
   CardFaceMetrics,
   COURT_PALETTES,
+  DECK_STOCK,
   Suit,
   CourtPalette,
   DeckTheme,
@@ -21,6 +22,7 @@ import {
   deckThemePath,
   inkOf,
   isCourtRank,
+  themeInk,
 } from '../index.js';
 
 // A card, drawn.
@@ -42,7 +44,6 @@ export const STANDARD_SUIT_ART: Readonly<Record<string, string>> = {
   clubs: 'club',
 };
 
-const CARD_FACE = 0xfdfdfd;
 // The hairline edge, as a fraction of the paper rather than a color of its
 // own. At the default near-white it lands on #d6d6d6, which is what it was
 // when it was written down; at any other stock it stays a shade of that stock
@@ -267,7 +268,10 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     const width = style.width ?? BASE_CARD_WIDTH;
     const theme = style.theme ?? DEFAULT_DECK_THEME;
     const backColor = style.backColor ?? DEFAULT_BACK_COLOR;
-    const ink = inkOf(style.ink, card.suit);
+    // The deck's own inks unless the game named others. A matrix card whose
+    // spades came out in the package's near-black would be a black pip on
+    // near-black stock, which is not a card at all.
+    const ink = inkOf(style.ink ?? themeInk(theme), card.suit);
     const dpr = style.pixelRatio ?? boardPixelRatio(scene);
     const metrics = cardFaceMetrics(width);
 
@@ -280,7 +284,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     // card beneath it, and a game that states it once in the palette it
     // already hands to `renderCourts` cannot get the two out of step.
     const paper = style.paper ?? (palette.paper !== undefined
-      ? cssColor(palette.paper) : CARD_FACE);
+      ? cssColor(palette.paper) : DECK_STOCK[theme].paper);
 
     const edge = style.edge ?? shade(paper, EDGE_OF_PAPER);
 

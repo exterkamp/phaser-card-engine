@@ -1,4 +1,5 @@
 import { colorOf } from './cards.js';
+import { DECK_STOCK, DeckTheme } from './deck-theme.js';
 
 // What a suit is printed in.
 //
@@ -24,6 +25,24 @@ export function defaultInk(suit: string): number {
   if (color === 'red') return INK_RED;
   if (color === 'black') return INK_BLACK;
   return INK_OTHER;
+}
+
+/**
+ * The two inks a deck prints its suits in.
+ *
+ * By `colorOf` rather than by naming the four suits, so a game that declared
+ * its own with `defineSuits` gets its red suits in the deck's red without
+ * this having to know they exist. A suit that counts as neither keeps the
+ * package's own color, because a deck has nothing to say about it.
+ */
+export function themeInk(theme: DeckTheme): SuitInk {
+  const { red, black } = DECK_STOCK[theme];
+  return (suit: string) => {
+    const color = colorOf(suit);
+    if (color === 'red') return red;
+    if (color === 'black') return black;
+    return defaultInk(suit);
+  };
 }
 
 /**

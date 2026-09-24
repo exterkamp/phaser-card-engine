@@ -16,8 +16,8 @@ describe('where the art is served from', () => {
   // absolute /cards/... is a 404 at somebody else's site.
   it('moves every path together', () => {
     setCardAssetBase('/phaser-card-engine/cards');
-    expect(deckThemePath('felt', 'back.webp'))
-      .toBe('/phaser-card-engine/cards/art/felt/back.webp');
+    expect(deckThemePath('antique', 'back.webp'))
+      .toBe('/phaser-card-engine/cards/art/antique/back.webp');
     expect(courtSourcePath('Q', 'hearts'))
       .toBe('/phaser-card-engine/cards/court/queen-hearts.svg');
   });

@@ -6,9 +6,9 @@ import {
   COURT_PALETTES,
   Card,
   CourtPalette,
+  DECK_STOCK,
   DECK_THEMES,
   DECK_THEME_LABELS,
-  DEFAULT_BACK_COLOR,
   DISPLAY_FONT,
   DeckTheme,
   RANKS,
@@ -18,7 +18,6 @@ import {
   colorCss,
   colorOf,
   cssColor,
-  defaultInk,
   defineStack,
   isCourtRank,
   stackPositions,
@@ -63,15 +62,33 @@ interface Editable {
   court: CourtPalette;
 }
 
-function defaults(): Editable {
+/**
+ * One of the six, as every value on this page.
+ *
+ * A theme used to be a court palette and a back, and everything else on a
+ * card was the same whichever you picked. It is a whole deck now - see
+ * DECK_STOCK - so loading one here loads all of it rather than repainting
+ * the portraits and leaving the card under them white.
+ */
+function themeDeck(theme: DeckTheme): Editable {
+  const stock = DECK_STOCK[theme];
+  const court = COURT_PALETTES[theme];
   return {
-    paper: 0xfdfdfd,
-    redInk: defaultInk('hearts'),
-    blackInk: defaultInk('spades'),
-    backColor: DEFAULT_BACK_COLOR,
-    back: 'press',
-    court: { ...COURT_PALETTES.press, highlight: '#fdfdfd' },
+    paper: stock.paper,
+    redInk: stock.red,
+    blackInk: stock.black,
+    backColor: stock.back,
+    back: theme,
+    court: {
+      ...court,
+      paper: colorCss(stock.paper),
+      highlight: court.highlight ?? '#fdfdfd',
+    },
   };
+}
+
+function defaults(): Editable {
+  return themeDeck('press');
 }
 
 // Six whole decks, each one nothing but the values on this page.
@@ -102,7 +119,7 @@ const PRESETS: Preset[] = [
       redInk: 0xe0647a,
       blackInk: 0x9fb4d8,
       backColor: 0x1f3a5f,
-      back: 'steel',
+      back: 'matrix',
       court: {
         ink: '#3c4a74', gold: '#d9b64a', red: '#b8465c', highlight: '#e9edf6',
       },
@@ -116,7 +133,7 @@ const PRESETS: Preset[] = [
       redInk: 0xff7518,
       blackInk: 0xb894ff,
       backColor: 0x5e3a5c,
-      back: 'royal',
+      back: 'neon',
       court: {
         ink: '#46275e', gold: '#ff9e2c', red: '#8f2fa8', highlight: '#f7e7c9',
       },
@@ -338,9 +355,7 @@ class DeckEditor extends Phaser.Scene {
       preset.value = 'press';
       preset.addEventListener('change', () => {
         if (!preset.value) return;
-        this.set({
-          court: { ...COURT_PALETTES[preset.value as DeckTheme], highlight: '#fdfdfd' },
-        });
+        this.set(themeDeck(preset.value as DeckTheme));
       });
     }
 

@@ -23,7 +23,7 @@ the one line nertz's Dockerfile wants.
 import { standardDeck, shuffle, seeded, deckThemePath, rankValue } from 'phaser-card-engine';
 
 const deck = shuffle(standardDeck(), seeded(42));   // repeatable, for tests
-const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/...
+const art = deckThemePath('antique', 'back.webp');   // /cards/art/antique/back.webp
 ```
 
 ## What is in it
@@ -37,13 +37,14 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colorOf`, `isRed`, `isBlack`, `sameColor`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColor`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `riffle.ts` | `riffleSplit` — which packet each card of a finished deck fell from, so an animation can arrive at an order rather than invent one |
-| `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colors and the guards that keep a bad value out of storage |
-| `ink.ts` | `defaultInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
+| `deck-theme.ts` | the six decks — their labels, their stock and inks (`DECK_STOCK`), the art path, the back/seat colors and the guards that keep a bad value out of storage |
+| `ink.ts` | `defaultInk`, `themeInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
 | `assets.ts` | `cardAssetBase`, `setCardAssetBase` — where the card art is served from, for a site that is not at the root of a host |
 | `court.ts` | `COURT_PALETTES`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
-| `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the seven card backs, and the suit glyphs |
+| `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the six card backs, and the suit glyphs |
 | `assets/fonts` | the four woff2 files and their licences |
+| `tools/render-backs.py` | draws the six backs. The only art still baked in this repo — run it when you add a deck |
 
 ## The card, and extending it
 
@@ -520,8 +521,8 @@ see `/deck.html`, which lets you set both and watch them disagree.
 ## Courts: a deck is a palette
 
 The twelve court cards are Dmitry Fomin's CC0 English pattern deck, and the
-seven themes are not seven sets of art — they are seven palettes over the same
-twelve drawings. Which means a court can be colored while the game is
+six decks are not six sets of art — they are six palettes over the same twelve
+drawings. Which means a court can be colored while the game is
 running, rather than only while it is being built:
 
 ```ts
@@ -531,6 +532,31 @@ const palette = { ink: '#4a4892', gold: '#e8b422', red: '#cf2436' };
 await renderCourts(this, palette);                    // rasterises all twelve
 new CardSprite(this, card, { width: 60, courtPalette: palette });
 ```
+
+### A deck is more than its courts
+
+A theme used to be a court palette and a back, and every card under them was
+near-white with the package's red and black. That is fine while the decks are
+printings of one deck. It stops being fine the moment a deck is meant to be a
+screen rather than a card, so `DECK_STOCK` names the rest of it:
+
+```ts
+import { DECK_STOCK, themeInk } from 'phaser-card-engine';
+
+DECK_STOCK.matrix;      // { paper: 0x060b07, red: 0xffb000, black: 0x2bff6a, back: 0x0a1410 }
+new CardSprite(this, card, { theme: 'matrix' });   // already all of that
+```
+
+`CardSprite` takes the stock and the inks from the theme unless the style
+names others, the same way it already took the court palette — so a game that
+says nothing but `theme` gets the whole deck rather than a matrix court on a
+white card.
+
+Two things worth knowing. `red` and `black` are what a suit is *printed* in
+and not what it *counts as*: matrix draws its hearts in amber and `colorOf`
+still answers `'red'`, which is the distinction `ink.ts` exists for. And
+`back` is a suggestion, not a setting — the back color belongs to the player,
+because in a four-handed game it is which seat they are.
 
 `renderCourts` is async, but it does not have to be awaited. A card built
 before its portrait has rendered shows its big centre pip and swaps the
@@ -631,15 +657,14 @@ checks the assumption against the files rather than trusting it.
 ### What this replaced
 
 The courts used to be baked: 84 WebP files, twelve per theme, 4.1 MB of the
-package. They are gone. The seven themes survive as the seven entries in
-`COURT_PALETTES`, which is all they ever were — three hex values each over one
-set of drawings.
+package. They are gone. The themes survive as the entries in `COURT_PALETTES`,
+which is all they ever were — a few hex values each over one set of drawings.
 
 | | now | before |
 | --- | --- | --- |
 | Weight | 489 kB gzipped, every palette | 4.1 MB, seven palettes |
 | Start-up | ~0.8 s for twelve, ~2.3 s throttled 4× | free |
-| Palettes | any | the seven somebody thought of |
+| Palettes | any | the ones somebody thought of |
 
 That start-up column is the whole of what it cost, and it is paid once per
 palette — the textures stay in the manager, so going back to a deck already
@@ -843,7 +868,7 @@ to `angular.json` rather than copying the files in:
 }
 ```
 
-That one glob covers `court/` (the twelve SVG sources), `art/` (the seven
+That one glob covers `court/` (the twelve SVG sources), `art/` (the six
 backs) and `suits/`. All three are needed; there is no longer a subset worth
 narrowing to.
 

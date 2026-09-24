@@ -17,11 +17,10 @@ import { cardAssetBase } from './assets.js';
 export const DECK_THEMES = [
   'classic',
   'press',
-  'felt',
-  'royal',
-  'steel',
   'antique',
   'millionaire',
+  'matrix',
+  'neon',
 ] as const;
 
 export type DeckTheme = (typeof DECK_THEMES)[number];
@@ -33,11 +32,74 @@ export const DEFAULT_DECK_THEME: DeckTheme = 'press';
 export const DECK_THEME_LABELS: Record<DeckTheme, string> = {
   classic: 'Classic',
   press: 'Press',
-  felt: 'Felt',
-  royal: 'Royal',
-  steel: 'Steel',
   antique: 'Antique',
   millionaire: 'Millionaire',
+  matrix: 'Matrix',
+  neon: 'Neon',
+};
+
+/**
+ * The stock a deck is printed on, and the two inks on it.
+ *
+ * Until now every deck was near-white paper with the package's own red and
+ * black, and a theme was only its court palette and its back. That was fine
+ * while the seven were seven printings of one deck. It stops being fine the
+ * moment a deck is meant to be a screen rather than a card: a phosphor deck
+ * on white paper is a green deck, not a terminal.
+ *
+ * So a theme now names all three. Most still name what they always had -
+ * `PAPER` and the package's default inks - and say so by naming them rather
+ * than by being absent, because a deck that is deliberately white and a deck
+ * that forgot to say are different things and only one of them is a bug.
+ *
+ * `red` and `black` are what the suits are *printed in*, not what they
+ * *count as*. Matrix draws its hearts in amber and its spades in green, and
+ * every rule that asks still gets red and black back - see ink.ts, which is
+ * where that distinction lives.
+ */
+export interface DeckStock {
+  /** The card's face, behind the pips and the portraits. */
+  paper: number;
+  /** Hearts and diamonds. */
+  red: number;
+  /** Spades and clubs. */
+  black: number;
+  /**
+   * What this deck's back is printed over.
+   *
+   * A suggestion rather than a setting. The back color belongs to the player
+   * - in Nertz it is which seat you are - so nothing here overrides one they
+   * chose. It is what a deck looks like when it is handed over whole, and a
+   * terminal deck handed over on a teal back is not the deck.
+   */
+  back: number;
+}
+
+/** Near-white, which is what a card has been since there were cards. */
+const PAPER = 0xfdfdfd;
+const RED = 0xcf2436;
+const BLACK = 0x1a1a1a;
+
+export const DECK_STOCK: Record<DeckTheme, DeckStock> = {
+  classic: { paper: PAPER, red: RED, black: BLACK, back: 0x2a5866 },
+  press: { paper: PAPER, red: RED, black: BLACK, back: 0x2a5866 },
+  // Rag paper that has been in a drawer since before anyone here was born.
+  // The inks go with it: a press red oxidises toward brick and lamp black
+  // toward the brown of the sizing it was ground into.
+  antique: { paper: 0xf2e6cd, red: 0xa8543f, black: 0x3b2d21, back: 0x6b4a2a },
+  millionaire: { paper: PAPER, red: RED, black: BLACK, back: 0x4f6b38 },
+  // A terminal. Near-black glass and the two phosphors a monitor was
+  // actually built with - P1 green and P3 amber - rather than two colours
+  // picked to look like a terminal.
+  //
+  // Amber takes the red suits because warm reads as red whatever the hue
+  // is, which matters: the whole of solitaire is alternating colours, and a
+  // deck whose two inks are hard to sort is a deck you cannot play.
+  matrix: { paper: 0x060b07, red: 0xffb000, black: 0x2bff6a, back: 0x0a1410 },
+  // Tube light on a wet street at night. Magenta and cyan, which are the
+  // two gases that actually glow those colours, and as far apart as two
+  // inks on one card can get.
+  neon: { paper: 0x14082a, red: 0xff2d95, black: 0x00e5ff, back: 0x1b0a2b },
 };
 
 /**
@@ -90,6 +152,8 @@ export const BACK_COLORS = [
   0x5e3a5c, // plum
   0x1f3a5f, // navy
   0x6b4a2a, // tobacco
+  0x0a1410, // phosphor - the off state of a green screen
+  0x1b0a2b, // ultraviolet
 ] as const;
 
 export const DEFAULT_BACK_COLOR = BACK_COLORS[0];

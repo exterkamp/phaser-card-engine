@@ -111,21 +111,35 @@ export const COURT_PALETTES: Record<DeckTheme, CourtPalette> = {
   // What four-color offset on uncoated stock actually gets you. No screen
   // palette reaches #ff0000 and neither did any card press.
   press: { ink: '#4a4892', gold: '#e8b422', red: '#cf2436' },
-  // Against the table: its label gold, a deeper brick, and line work in the
-  // felt's own green rather than blue.
-  felt: { ink: '#2e584c', gold: '#d8b471', red: '#962d30' },
-  // The shop's gold with the purple seat color. The ink goes near-neutral
-  // here on purpose - a purple line over a purple field is one shape.
-  royal: { ink: '#3a344a', gold: '#ffd166', red: '#7a4fa3' },
-  // Cool throughout, line work included.
-  steel: { ink: '#365468', gold: '#c6d6e0', red: '#2f6f8f' },
   // Aged: everything pulled toward brown, nothing fully saturated, and the
-  // drawing in sepia rather than blue.
-  antique: { ink: '#6b4a32', gold: '#e0c080', red: '#a85c4a' },
+  // drawing in sepia rather than blue. The stock under it is rag paper
+  // rather than white - see DECK_STOCK - so the portraits are not islands
+  // of bright card in a drawer-coloured deck.
+  antique: { ink: '#6b4a32', gold: '#e0c080', red: '#a85c4a',
+    paper: '#f2e6cd', highlight: '#efe0c2' },
   // Green throughout. One hue for all three roles is the hardest case, and
   // the only thing holding it apart is lightness: the three sit on an even
   // ladder because hue does none of the work here.
   millionaire: { ink: '#1e5540', gold: '#9ccf7a', red: '#2f8f5b' },
+  // A terminal. Everything is one phosphor at four brightnesses, which is
+  // what a monochrome monitor actually gave you: hue does none of the work
+  // and the whole portrait is carried by how bright each part glows.
+  //
+  // `highlight` is the one that matters on a deck this dark. Skin and linen
+  // are holes in the drawing that show the stock, and on near-black stock a
+  // king with no highlight is a crown floating over nothing - so it is a
+  // lit green rather than the paper, which is what puts a face back in.
+  matrix: {
+    ink: '#2bff6a', gold: '#b6ff7a', red: '#0f7a3c',
+    paper: '#060b07', highlight: '#173b22',
+  },
+  // Tube light. The line work is the violet of the glass itself, the trim
+  // is the yellow-white of a lit tube, and the garments are the magenta
+  // that gives the deck its name.
+  neon: {
+    ink: '#b06cff', gold: '#ffe14d', red: '#ff2d95',
+    paper: '#14082a', highlight: '#3a1d5c',
+  },
 };
 
 const RGB = (hex: string): [number, number, number] => [
