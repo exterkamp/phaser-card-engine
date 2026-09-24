@@ -72,6 +72,98 @@ function defaults(): Editable {
   };
 }
 
+// Six whole decks, each one nothing but the values on this page.
+//
+// They are here to be read rather than admired: every one is the same eleven
+// numbers, and the interesting ones are interesting because of how the four
+// systems are set against each other. A dark stock needs its inks flipped
+// pale or the index vanishes. A dark stock also needs the court's `highlight`
+// left light, or the figures go down with the card - that one field is the
+// difference between Midnight and a black rectangle.
+interface Preset {
+  name: string;
+  note: string;
+  deck: Editable;
+}
+
+const PRESETS: Preset[] = [
+  {
+    name: 'Press',
+    note: 'the deck as it comes: four-colour offset on uncoated stock',
+    deck: defaults(),
+  },
+  {
+    name: 'Midnight',
+    note: 'dark stock, inks flipped pale, and the court keeping a light face',
+    deck: {
+      paper: 0x12141c,
+      redInk: 0xe0647a,
+      blackInk: 0x9fb4d8,
+      backColor: 0x1f3a5f,
+      back: 'steel',
+      court: {
+        ink: '#3c4a74', gold: '#d9b64a', red: '#b8465c', highlight: '#e9edf6',
+      },
+    },
+  },
+  {
+    name: 'Halloween',
+    note: 'pumpkin on aubergine, with a candlelit court',
+    deck: {
+      paper: 0x1a1014,
+      redInk: 0xff7518,
+      blackInk: 0xb894ff,
+      backColor: 0x5e3a5c,
+      back: 'royal',
+      court: {
+        ink: '#46275e', gold: '#ff9e2c', red: '#8f2fa8', highlight: '#f7e7c9',
+      },
+    },
+  },
+  {
+    name: 'Forest',
+    note: 'one hue doing all the work, held apart by lightness',
+    deck: {
+      paper: 0xf2f5ec,
+      redInk: 0x2f8f5b,
+      blackInk: 0x1c3a2a,
+      backColor: 0x4f6b38,
+      back: 'millionaire',
+      court: {
+        ink: '#1e5540', gold: '#9ccf7a', red: '#2f8f5b', highlight: '#fbfdf6',
+      },
+    },
+  },
+  {
+    name: 'Parchment',
+    note: 'aged: nothing saturated, the drawing in sepia',
+    deck: {
+      paper: 0xf3e7cd,
+      redInk: 0xa8432f,
+      blackInk: 0x4a3b2a,
+      backColor: 0x6b4a2a,
+      back: 'antique',
+      court: {
+        ink: '#6b4a32', gold: '#c9a55e', red: '#a8543f', highlight: '#fbf4e4',
+      },
+    },
+  },
+  {
+    name: 'Neon',
+    note: 'the other end of it: two inks that have never been near a press',
+    deck: {
+      paper: 0x0d0b14,
+      redInk: 0xff4fd8,
+      blackInk: 0x45f0ff,
+      backColor: 0x2a5866,
+      back: 'classic',
+      court: {
+        ink: '#312057', gold: '#f5e663', red: '#ff3d9a', highlight: '#efe9ff',
+      },
+    },
+  },
+];
+
 class DeckEditor extends Phaser.Scene {
   private root!: Phaser.GameObjects.Container;
   private deck: Editable = defaults();
@@ -173,6 +265,12 @@ class DeckEditor extends Phaser.Scene {
         : 'a pip, drawn in the suit’s own ink', '#7f9f88');
   }
 
+  /** The line under the board, which says what you are looking at. */
+  private say(text: string): void {
+    const note = document.getElementById('note');
+    if (note) note.textContent = text;
+  }
+
   private label(x: number, y: number, text: string, color: string): void {
     const item = this.add.text(x, y, text, {
       fontFamily: BODY_FONT, fontSize: '10px', color, align: 'center',
@@ -244,6 +342,24 @@ class DeckEditor extends Phaser.Scene {
       });
     }
 
+    const shelf = document.getElementById('presets');
+    if (shelf) {
+      for (const preset of PRESETS) {
+        const button = document.createElement('button');
+        button.textContent = preset.name;
+        button.dataset['deck'] = preset.name;
+        button.title = preset.note;
+        button.addEventListener('click', () => {
+          this.deck = { ...preset.deck, court: { ...preset.deck.court } };
+          this.showControls();
+          this.build();
+          this.report();
+          this.say(`${preset.name} — ${preset.note}.`);
+        });
+        shelf.append(button);
+      }
+    }
+
     document.getElementById('prev')?.addEventListener('click', () => this.step(-1));
     document.getElementById('next')?.addEventListener('click', () => this.step(1));
     document.getElementById('reset')?.addEventListener('click', () => {
@@ -303,7 +419,24 @@ class DeckEditor extends Phaser.Scene {
     this.report();
   }
 
+  /** Which of the six this is, if it is one of them. */
+  private named(): string | undefined {
+    return PRESETS.find((preset) => {
+      const a = preset.deck;
+      const b = this.deck;
+      return a.paper === b.paper && a.redInk === b.redInk && a.blackInk === b.blackInk
+        && a.backColor === b.backColor && a.back === b.back
+        && a.court.ink === b.court.ink && a.court.gold === b.court.gold
+        && a.court.red === b.court.red && a.court.highlight === b.court.highlight;
+    })?.name;
+  }
+
   private showControls(): void {
+    const active = this.named();
+    for (const button of document.querySelectorAll<HTMLElement>('#presets button')) {
+      button.classList.toggle('on', button.dataset['deck'] === active);
+    }
+
     const put = (id: string, value: string) => {
       const el = document.getElementById(id) as HTMLInputElement | null;
       if (el) el.value = value;

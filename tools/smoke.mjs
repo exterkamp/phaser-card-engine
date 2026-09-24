@@ -27,6 +27,12 @@ const chrome = spawn('google-chrome', [
   `--user-data-dir=${profile}`, 'about:blank',
 ], { stdio: 'ignore', detached: true });
 
+/** How light a `#rrggbb` is, 0-255. */
+const cssLuma = (css) => {
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(css.slice(i, i + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
 let failures = 0;
 const check = (ok, what) => {
   console.log(`${ok ? '  ok  ' : '  FAIL'} ${what}`);
@@ -469,6 +475,45 @@ check(seeded === '#0b0b0f',
 const rules = JSON.parse(await evaluate('JSON.stringify(window.__deck.rules)'));
 check(rules.hearts === 'red' && rules.spades === 'black',
   'and no amount of recoloring changes what a suit counts as');
+
+// The six ready-made decks. Two of them are dark, which is the case that
+// needs every field pulling together - inks flipped pale so the index shows,
+// and the court's highlight left light so the figures do not go down with the
+// card. A preset that renders a black rectangle is a preset that forgot one.
+const decks = JSON.parse(await evaluate(
+  `JSON.stringify([...document.querySelectorAll('#presets button')].map(b => b.textContent))`));
+check(decks.length === 6, `six whole decks to start from (${decks.length})`);
+
+const applied = [];
+for (const name of decks) {
+  await evaluate(`[...document.querySelectorAll('#presets button')]
+    .find(b => b.textContent === ${JSON.stringify(name)}).click()`);
+  await sleep(2600);
+  applied.push(JSON.parse(await evaluate(`(() => {
+    const s = ${editor};
+    const keys = s.cards.flatMap(c => c.list.filter(o => o.type === 'Image')
+      .map(o => o.texture.key));
+    const lit = document.querySelector('#presets button.on');
+    return JSON.stringify({
+      name: ${JSON.stringify(name)},
+      courts: keys.filter(k => k.startsWith('pce-court-svg')).length,
+      lit: lit ? lit.textContent : null,
+      paper: s.deck.paper,
+      highlight: s.deck.court.highlight,
+    });
+  })()`)));
+}
+check(applied.every((d) => d.courts === 4),
+  `every deck renders its courts (${applied.map((d) => d.courts).join('')})`);
+check(applied.every((d) => d.lit === d.name),
+  'and the deck you picked is the one shown as picked');
+
+// The dark ones, specifically: a stock that dark with a highlight to match
+// would be a card with no faces on it.
+const dim = applied.filter((d) => d.paper < 0x404040);
+check(dim.length >= 2, `at least two of them are dark decks (${dim.length})`);
+check(dim.every((d) => cssLuma(d.highlight) > 200),
+  `and each keeps a light court highlight (${dim.map((d) => d.highlight).join(' ')})`);
 
 // Reset has to actually restore, or the editor is a one-way trip.
 await evaluate("document.getElementById('reset').click()");

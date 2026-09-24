@@ -52,6 +52,9 @@
         overflow-x: auto; text-align: left;
       }
       .rank { display: flex; align-items: center; gap: 0.6rem; }
+      #presets { gap: 0.4rem; }
+      #presets button { font-size: 0.68rem; padding: 0.3rem 0.6rem; }
+      #presets button.on, button.on { background: #ffd166; color: #13463a; border-color: #ffd166; }
       button.on { background: #ffd166; color: #13463a; border-color: #ffd166; }
     </style>
   </head>
@@ -62,13 +65,22 @@
       Every color this package lets a game set, over a deck you can walk
       through a rank at a time. Four separate systems &mdash; the stock, the
       suit inks, the back, the court palette &mdash; and the point of putting
-      them in one place is that they stay separate.
+      them in one place is that they stay separate. <strong>Start from one of
+      the six decks below</strong>: each is nothing but the eleven values on
+      this page, and the code for whichever you are looking at is printed at
+      the bottom.
     </p>
     <div id="board"></div>
+    <p id="note"></p>
     <div class="row rank">
       <button id="prev">&larr; Rank</button>
       <button id="next">Rank &rarr;</button>
     </div>
+
+    <fieldset id="presets-box">
+      <legend>Whole decks</legend>
+      <div id="presets" class="row"></div>
+    </fieldset>
 
     <fieldset>
       <legend>The card</legend>

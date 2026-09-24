@@ -232,7 +232,8 @@ its top-left corner to get back to it:
 - **hands** at `/hands.html` — a fanned hand you can throw cards into, one
   face up in front of you and one turned round across the table
 - **deck editor** at `/deck.html` — every color a deck has, over a deck you
-  can step through a rank at a time
+  can step through a rank at a time, starting from six ready-made ones
+  (Press, Midnight, Halloween, Forest, Parchment, Neon)
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -537,9 +538,16 @@ Edges are blended rather than switched, so the figure keeps its antialiasing
 instead of gaining a pale fringe against a dark stock.
 
 `highlight` defaults to `COURT_PAPER` rather than to `paper`, so a deck that
-only asks for a dark card still gets a face. The flood is skipped entirely
-when the two match, which is every deck that has not asked for them to
-differ.
+only asks for a dark card still gets a face. The repaint is skipped entirely
+when the two match, which is every deck that has not asked for them to differ.
+
+The six decks on `/deck.html` are there to be read rather than admired: each
+is the same eleven values, and the dark ones are the interesting case. A dark
+stock needs its suit inks flipped pale or the index disappears, and it needs
+`highlight` left light or the figures go down with the card — that one field
+is the difference between Midnight and a black rectangle. The editor prints
+the `CardStyle` for whichever you are looking at, so lifting one is a copy and
+paste.
 
 Black stays put. It is the mass the line work sits on rather than a color
 anything is printed in, and a deck that moves it is a deck whose faces
