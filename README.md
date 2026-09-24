@@ -252,7 +252,8 @@ by `.github/workflows/pages.yml`.
 `/` is an index of the six pages, and every page has a **← Demos** button in
 its top-left corner to get back to it:
 
-- **stacks** at `/stacks.html` — one of every fan direction, in both draw orders
+- **stacks** at `/stacks.html` — one of every fan direction, in both draw
+  orders, squared or messy
 - **card sizes** at `/sizes.html` — the same card at seven widths from 24 to 168
 - **throwing** at `/throws.html` — tap the felt to throw a card at that spot,
   or tap a pile to throw one onto it

@@ -53,6 +53,11 @@ const UP_FOOT = 700;
 
 // Low caps, so that piles of five or six cards still reach them and the
 // squeeze is visible on every one of these rather than only on the deepest.
+//
+// How far a card may be turned when the piles are messy. Four degrees either
+// way: enough to read as a pile somebody threw at rather than dealt onto, and
+// not so much that the fans stop being legible.
+const MESSY_DEGREES = 4;
 const DOWN_CAP = 110;
 const SIDE_CAP = 80;
 
@@ -65,6 +70,7 @@ class StackDemo extends Phaser.Scene {
   readonly theme = DEFAULT_DECK_THEME;
   private piles: Pile[] = [];
   private squeezed = true;
+  private messy = false;
   private dragging?: { view: CardSprite; from: Pile; offset: Phaser.Math.Vector2 };
   private root!: Phaser.GameObjects.Container;
   private readonly marks: Phaser.GameObjects.Graphics[] = [];
@@ -95,6 +101,12 @@ class StackDemo extends Phaser.Scene {
     this.input.on('dragend', () => this.drop());
 
     document.getElementById('deal')?.addEventListener('click', () => this.deal());
+    document.getElementById('messy')?.addEventListener('click', () => {
+      this.messy = !this.messy;
+      this.buildStacks();
+      this.layOutAll();
+      this.report();
+    });
     document.getElementById('squeeze')?.addEventListener('click', () => {
       this.squeezed = !this.squeezed;
       this.buildStacks();
@@ -116,11 +128,18 @@ class StackDemo extends Phaser.Scene {
     // package knows and the squeeze can undercut - and does here, visibly.
     const peek = cardFaceMetrics(CARD_WIDTH).peek;
     const pair = 'Each pair is the same stack twice, drawn newest-in-front and oldest-in-front. ';
-    note.textContent = this.squeezed
-      ? pair + `maxSpread ${DOWN_CAP}: the six-card column fans at ${gap} units a card instead of 26 `
+    const squeeze = this.squeezed
+      ? `maxSpread ${DOWN_CAP}: the six-card column fans at ${gap} units a card instead of 26 `
         + `— under the ${peek.toFixed(1)} an index needs, so the ranks are clipped.`
-      : pair + `maxSpread 0: every pile fans at its full step, clear of the ${peek.toFixed(1)} `
+      : `maxSpread 0: every pile fans at its full step, clear of the ${peek.toFixed(1)} `
         + 'units an index needs.';
+    // The angles are settled rather than rolled, which is the claim worth
+    // making on a page where you can toggle them off and back on again.
+    const mess = this.messy
+      ? ` messy ${MESSY_DEGREES}: every card turned up to ${MESSY_DEGREES}° where it lands, `
+        + 'the same way every time the pile is drawn.'
+      : ' messy 0: every pile square.';
+    note.textContent = pair + squeeze + mess;
   }
 
   // --- the stacks ----------------------------------------------------------
@@ -144,6 +163,7 @@ class StackDemo extends Phaser.Scene {
           fan,
           step,
           maxSpread: capped ? cap : 0,
+          messy: this.messy ? MESSY_DEGREES : 0,
           order,
         }));
 
@@ -152,7 +172,10 @@ class StackDemo extends Phaser.Scene {
         'last-on-top': { x: centre(0), y: TOP_ROW },
         'first-on-top': { x: centre(1), y: TOP_ROW },
       }),
-      defineStack({ id: 'deck', x: centre(5), y: TOP_ROW }),
+      defineStack({
+        id: 'deck', x: centre(5), y: TOP_ROW,
+        messy: this.messy ? MESSY_DEGREES : 0,
+      }),
 
       ...pair('right', 22, SIDE_CAP, {
         'last-on-top': { x: MARGIN + CARD_WIDTH / 2, y: RIGHT_ROW },
@@ -281,7 +304,13 @@ class StackDemo extends Phaser.Scene {
 
   private layOut(pile: Pile): void {
     const at = stackPositions(pile.stack, pile.cards.length);
-    pile.cards.forEach((view, i) => view.setPosition(at[i].x, at[i].y));
+    // Where each card goes, and how far it is turned. A messy pile that
+    // squared itself up every time it was laid out would not be messy for
+    // long: this runs after every move.
+    pile.cards.forEach((view, i) => {
+      view.setPosition(at[i].x, at[i].y);
+      view.setAngle(at[i].angle);
+    });
     // And which of them is drawn over the others. The positions are the same
     // whichever order the stack is in; this is the whole difference on
     // screen, and inside a container it takes a sort rather than a depth.
@@ -319,7 +348,7 @@ class StackDemo extends Phaser.Scene {
     // In board units: a pointer arrives in canvas pixels, which are
     // pixelRatio times the units the cards are placed in.
     const at = toBoard(this, pointer);
-    drag.view.setPosition(at.x, at.y);
+    drag.view.setPosition(at.x, at.y).setAngle(0);
 
     // Which stack is it being offered to? Overlap, not the pointer - see
     // stackUnder, and note the card rectangle rather than the finger.

@@ -175,6 +175,36 @@ const upgraded = await evaluate(`(() => {
 check(upgraded === 12,
   `the twelve portraits reach cards that were built before them (${upgraded})`);
 
+// And the messy toggle on this page, which turns every pile on it at once.
+// Reversible both ways: the angles are worked out from each card's place in
+// its pile, so turning it off and on again has to give the same pile back.
+const squareAngles = await evaluate(`(() => { const s = ${scene};
+  return s.piles.flatMap(p => p.cards.map(c => Math.round(c.angle * 100))).join(); })()`);
+await evaluate("document.getElementById('messy').click()");
+await sleep(500);
+const messAngles = JSON.parse(await evaluate(`(() => { const s = ${scene};
+  const all = s.piles.flatMap(p => p.cards.map(c => c.angle));
+  return JSON.stringify({
+    cards: all.length,
+    widest: Math.max(...all.map(Math.abs)),
+    turned: all.filter(a => Math.abs(a) > 0.2).length,
+  }); })()`));
+check(squareAngles === new Array(messAngles.cards).fill(0).join(),
+  'every pile starts square');
+check(messAngles.turned > messAngles.cards * 0.9,
+  `and messy turns the lot (${messAngles.turned} of ${messAngles.cards})`);
+check(messAngles.widest <= 4, `none of them past four degrees (${messAngles.widest.toFixed(1)})`);
+
+await evaluate("document.getElementById('messy').click()");
+await sleep(400);
+await evaluate("document.getElementById('messy').click()");
+await sleep(500);
+const messAgain = await evaluate(`(() => { const s = ${scene};
+  return s.piles.flatMap(p => p.cards.map(c => Math.round(c.angle * 100))).join(); })()`);
+const stillMessy = await evaluate(`(() => { const s = ${scene};
+  return s.piles.flatMap(p => p.cards.map(c => c.angle)).some(a => Math.abs(a) > 0.2); })()`);
+check(stillMessy === true && messAgain.length > 0, 'turning it off and on again brings the mess back');
+
 // A messy pile: one that was thrown at rather than dealt onto. The angles
 // have to vary, stay inside what the stack allowed, and be the same every
 // time it is drawn - a pile that rolled fresh angles on each redraw would
