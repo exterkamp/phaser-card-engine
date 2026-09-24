@@ -92,14 +92,20 @@ export interface Stack {
   /** Which end of the pile is drawn over the rest. See StackOrder. */
   readonly order: StackOrder;
   /**
-   * How far a card may be turned where it lands, in degrees either way.
+   * How roughly this pile was made, from 0 to 1.
    *
-   * Zero is a squared pile, which is what a pile dealt by hand looks like and
-   * what everything here did before this existed. Anything above it is a pile
-   * that was *thrown* at: nertz players do not place cards on the foundations
-   * in the middle, they pitch them, and a foundation at the end of a hand is
-   * a fan of near-misses rather than a neat stack. Two or three degrees is
-   * plenty - it reads as thrown at five and as a mess at ten.
+   * Zero is a squared pile - a pile dealt by hand, and what everything here
+   * did before this existed. One is the most a card will be turned, which is
+   * `MESSY_TURN` degrees either way. In between is linear, so 0.25 is a
+   * quarter of that and reads as a pile somebody was a little careless with.
+   *
+   * A dial rather than an angle because that is how it gets used: a game
+   * decides how rough its foundations look, not how many degrees a card may
+   * be off by. `MESSY_TURN` is exported for anyone who wants the number.
+   *
+   * What it is for: nertz players do not place cards on the foundations in
+   * the middle of the table, they pitch them, and a foundation at the end of
+   * a hand is a fan of near-misses rather than a neat stack.
    *
    * The turn is worked out from the card's place in the pile rather than
    * rolled, so a pile looks the same every time it is drawn. A pile that
@@ -173,6 +179,15 @@ export function stackOffsets(stack: Stack, gaps: readonly number[]): number[] {
  * squared pile or an evenly fanned one wants.
  */
 /**
+ * The most a card is ever turned, in degrees, at `messy: 1`.
+ *
+ * Twelve, which is a pile four people have been throwing at all evening. Half
+ * of it still reads as a pile rather than a spill, and a quarter is the sort
+ * of untidiness nobody would remark on.
+ */
+export const MESSY_TURN = 12;
+
+/**
  * How far the card at `index` is turned on this pile.
  *
  * Settled rather than rolled: the same pile and the same place always give
@@ -181,8 +196,9 @@ export function stackOffsets(stack: Stack, gaps: readonly number[]): number[] {
  * in is what stops four foundations side by side being turned identically.
  */
 export function stackAngle(stack: Pick<Stack, 'id' | 'messy'>, index: number): number {
-  if (!stack.messy) return 0;
-  return (scatter(stack.id, index) * 2 - 1) * stack.messy;
+  const messy = Math.max(0, Math.min(1, stack.messy));
+  if (!messy) return 0;
+  return (scatter(stack.id, index) * 2 - 1) * messy * MESSY_TURN;
 }
 
 /** A number in 0..1 from a name and a place, and the same one every time. */

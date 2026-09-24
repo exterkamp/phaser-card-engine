@@ -33,7 +33,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `card-face.ts` | `cardFaceMetrics` — where the index, its suit and the big pip go, at any card width |
 | `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite`, `preloadCardArt`, `throwCard` and `dealCards`, behind `phaser-card-engine/phaser` |
 | `hand.ts` | `Hand` and `defineHand`, `handPositions`, `nextHandPlace`, `handBounds` — cards held in a fan rather than stacked |
-| `stack.ts` | `Stack` and `defineStack`, `stackAngle`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
+| `stack.ts` | `Stack` and `defineStack`, `stackAngle`, `MESSY_TURN`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colorOf`, `isRed`, `isBlack`, `sameColor`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColor`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `riffle.ts` | `riffleSplit` — which packet each card of a finished deck fell from, so an animation can arrive at an order rather than invent one |
@@ -164,14 +164,29 @@ stackUnder(cardRect(pointer), piles);   // which stack a dragged card is over
 ### A pile that was thrown at
 
 ```ts
-defineStack({ id: 'foundation-0', x: 240, y: 300, messy: 4 });
+defineStack({ id: 'foundation-0', x: 240, y: 300, messy: 0.35 });
 ```
 
-Zero is a squared pile — what everything here did before this existed, and
-what a pile dealt by hand looks like. Above it is a pile that was *pitched*
-at: nertz players do not place cards on the foundations in the middle of the
-table, and a foundation at the end of a hand is a fan of near-misses rather
-than a neat stack. Two or three degrees reads as thrown; ten reads as broken.
+`messy` is a dial from **0 to 1**: how roughly the pile was made. Zero is a
+squared pile — what everything here did before this existed, and what a pile
+dealt by hand looks like. One is `MESSY_TURN` degrees either way, and in
+between is linear, so 0.5 is half the angle rather than some curve of it.
+
+A dial rather than an angle because that is how it gets used: a game decides
+how rough its foundations look, not how many degrees a card may be off by.
+`MESSY_TURN` is exported for anyone who wants the number, and values outside
+0–1 are clamped rather than obeyed.
+
+| dial | turn | reads as |
+| --- | --- | --- |
+| `0` | 0° | dealt by hand |
+| `0.25` | ±3° | nobody would remark on it |
+| `0.5` | ±6° | a pile somebody threw at |
+| `1` | ±12° | four people pitching at it all evening |
+
+What it is for: nertz players do not place cards on the foundations in the
+middle of the table, they pitch them, and a foundation at the end of a hand is
+a fan of near-misses rather than a neat stack.
 
 `stackPositions` returns an `angle` with every place, so a card knows how far
 it is turned as well as where it goes — and `throwCard` already settles on its
@@ -253,7 +268,7 @@ by `.github/workflows/pages.yml`.
 its top-left corner to get back to it:
 
 - **stacks** at `/stacks.html` — one of every fan direction, in both draw
-  orders, squared or messy
+  orders, with a dial for how messy the piles are
 - **card sizes** at `/sizes.html` — the same card at seven widths from 24 to 168
 - **throwing** at `/throws.html` — tap the felt to throw a card at that spot,
   or tap a pile to throw one onto it

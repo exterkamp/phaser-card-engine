@@ -61,8 +61,9 @@ class ThrowDemo extends Phaser.Scene {
       // What a pile that was thrown at looks like. Nertz players do not place
       // cards on the foundations in the middle of the table, they pitch them,
       // and a foundation at the end of a hand is a fan of near-misses. Four
-      // degrees either way is enough to read as thrown rather than as broken.
-      defineStack({ id: 'messy', x: 400, y: 420, messy: 4 }),
+      // a third of the way up the dial is enough to read as thrown rather
+      // than as broken.
+      defineStack({ id: 'messy', x: 400, y: 420, messy: 0.35 }),
       defineStack({ id: 'row', x: 110, y: 420, fan: 'right', step: 24, maxSpread: 200 }),
     ].map((stack) => ({ stack, cards: [] }));
 

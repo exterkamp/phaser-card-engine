@@ -13,6 +13,7 @@ import {
   StackOrder,
   buildDeck,
   cardRect,
+  MESSY_TURN,
   defineStack,
   nextPosition,
   seeded,
@@ -53,11 +54,7 @@ const UP_FOOT = 700;
 
 // Low caps, so that piles of five or six cards still reach them and the
 // squeeze is visible on every one of these rather than only on the deepest.
-//
-// How far a card may be turned when the piles are messy. Four degrees either
-// way: enough to read as a pile somebody threw at rather than dealt onto, and
-// not so much that the fans stop being legible.
-const MESSY_DEGREES = 4;
+
 const DOWN_CAP = 110;
 const SIDE_CAP = 80;
 
@@ -70,7 +67,7 @@ class StackDemo extends Phaser.Scene {
   readonly theme = DEFAULT_DECK_THEME;
   private piles: Pile[] = [];
   private squeezed = true;
-  private messy = false;
+  private messy = 0;
   private dragging?: { view: CardSprite; from: Pile; offset: Phaser.Math.Vector2 };
   private root!: Phaser.GameObjects.Container;
   private readonly marks: Phaser.GameObjects.Graphics[] = [];
@@ -101,8 +98,11 @@ class StackDemo extends Phaser.Scene {
     this.input.on('dragend', () => this.drop());
 
     document.getElementById('deal')?.addEventListener('click', () => this.deal());
-    document.getElementById('messy')?.addEventListener('click', () => {
-      this.messy = !this.messy;
+    // A dial rather than a switch, because the interesting part is what the
+    // numbers in between look like.
+    const messy = document.getElementById('messy') as HTMLInputElement | null;
+    messy?.addEventListener('input', () => {
+      this.messy = Number(messy.value);
       this.buildStacks();
       this.layOutAll();
       this.report();
@@ -135,10 +135,13 @@ class StackDemo extends Phaser.Scene {
         + 'units an index needs.';
     // The angles are settled rather than rolled, which is the claim worth
     // making on a page where you can toggle them off and back on again.
-    const mess = this.messy
-      ? ` messy ${MESSY_DEGREES}: every card turned up to ${MESSY_DEGREES}° where it lands, `
-        + 'the same way every time the pile is drawn.'
+    const mess = this.messy > 0
+      ? ` messy ${this.messy.toFixed(2)}: every card turned up to `
+        + `${(this.messy * MESSY_TURN).toFixed(1)}° where it lands, the same way every time `
+        + 'the pile is drawn.'
       : ' messy 0: every pile square.';
+    const dial = document.getElementById('messy-value');
+    if (dial) dial.textContent = this.messy.toFixed(2);
     note.textContent = pair + squeeze + mess;
   }
 
@@ -163,7 +166,7 @@ class StackDemo extends Phaser.Scene {
           fan,
           step,
           maxSpread: capped ? cap : 0,
-          messy: this.messy ? MESSY_DEGREES : 0,
+          messy: this.messy,
           order,
         }));
 
@@ -173,8 +176,7 @@ class StackDemo extends Phaser.Scene {
         'first-on-top': { x: centre(1), y: TOP_ROW },
       }),
       defineStack({
-        id: 'deck', x: centre(5), y: TOP_ROW,
-        messy: this.messy ? MESSY_DEGREES : 0,
+        id: 'deck', x: centre(5), y: TOP_ROW, messy: this.messy,
       }),
 
       ...pair('right', 22, SIDE_CAP, {

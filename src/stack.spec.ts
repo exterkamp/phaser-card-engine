@@ -7,6 +7,7 @@ import {
   overlap,
   readableOrder,
   stackBounds,
+  MESSY_TURN,
   stackAngle,
   stackDepths,
   stackOffsets,
@@ -100,7 +101,7 @@ describe('squeezing', () => {
 
 describe('a messy pile', () => {
   const neat = defineStack({ id: 'foundation-0', x: 100, y: 100 });
-  const thrown = defineStack({ id: 'foundation-0', x: 100, y: 100, messy: 4 });
+  const thrown = defineStack({ id: 'foundation-0', x: 100, y: 100, messy: 0.5 });
 
   // What every pile did before this existed, and what a pile dealt by hand
   // still looks like.
@@ -109,10 +110,37 @@ describe('a messy pile', () => {
     expect(stackPositions(neat, 5).every((place) => place.angle === 0)).toBe(true);
   });
 
-  it('turns each card, and never past what it was allowed', () => {
+  it('turns each card, and never past the dial', () => {
     const places = stackPositions(thrown, 52);
-    expect(places.every((place) => Math.abs(place.angle) <= 4)).toBe(true);
+    expect(places.every((place) => Math.abs(place.angle) <= MESSY_TURN / 2)).toBe(true);
     expect(places.some((place) => place.angle !== 0)).toBe(true);
+  });
+
+  // The dial is linear, so the numbers a game picks mean something next to
+  // each other: half as messy is half the angle, not some curve of it.
+  it('is linear in the dial', () => {
+    const half = defineStack({ id: 'foundation-0', x: 0, y: 0, messy: 0.5 });
+    const full = defineStack({ id: 'foundation-0', x: 0, y: 0, messy: 1 });
+    for (let at = 0; at < 8; at++) {
+      expect(stackAngle(half, at)).toBeCloseTo(stackAngle(full, at) / 2, 6);
+    }
+  });
+
+  it('reaches MESSY_TURN at one, and no further', () => {
+    const full = defineStack({ id: 'foundation-0', x: 0, y: 0, messy: 1 });
+    const angles = stackPositions(full, 200).map((place) => Math.abs(place.angle));
+    expect(Math.max(...angles)).toBeLessThanOrEqual(MESSY_TURN);
+    expect(Math.max(...angles)).toBeGreaterThan(MESSY_TURN * 0.9);
+  });
+
+  // A dial is a dial: somebody will pass 2, or -1, and neither should make a
+  // pile of cards spin.
+  it('ignores a dial turned past its ends', () => {
+    const over = defineStack({ id: 'foundation-0', x: 0, y: 0, messy: 4 });
+    const full = defineStack({ id: 'foundation-0', x: 0, y: 0, messy: 1 });
+    expect(stackAngle(over, 3)).toBe(stackAngle(full, 3));
+    const under = defineStack({ id: 'foundation-0', x: 0, y: 0, messy: -1 });
+    expect(stackAngle(under, 3)).toBe(0);
   });
 
   it('turns them both ways', () => {
@@ -137,10 +165,7 @@ describe('a messy pile', () => {
       .not.toEqual(stackPositions(other, 10).map((p) => p.angle));
   });
 
-  it('scales with the allowance', () => {
-    const wild = defineStack({ id: 'foundation-0', x: 100, y: 100, messy: 8 });
-    expect(stackAngle(wild, 3)).toBeCloseTo(stackAngle(thrown, 3) * 2, 6);
-  });
+
 
   it('leaves where the cards sit alone', () => {
     expect(stackPositions(thrown, 3).map((p) => [p.x, p.y]))

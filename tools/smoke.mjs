@@ -180,7 +180,9 @@ check(upgraded === 12,
 // its pile, so turning it off and on again has to give the same pile back.
 const squareAngles = await evaluate(`(() => { const s = ${scene};
   return s.piles.flatMap(p => p.cards.map(c => Math.round(c.angle * 100))).join(); })()`);
-await evaluate("document.getElementById('messy').click()");
+const dial = (value) => evaluate(`(() => { const i = document.getElementById('messy');
+  i.value = '${value}'; i.dispatchEvent(new Event('input')); return true; })()`);
+await dial(1);
 await sleep(500);
 const messAngles = JSON.parse(await evaluate(`(() => { const s = ${scene};
   const all = s.piles.flatMap(p => p.cards.map(c => c.angle));
@@ -193,17 +195,30 @@ check(squareAngles === new Array(messAngles.cards).fill(0).join(),
   'every pile starts square');
 check(messAngles.turned > messAngles.cards * 0.9,
   `and messy turns the lot (${messAngles.turned} of ${messAngles.cards})`);
-check(messAngles.widest <= 4, `none of them past four degrees (${messAngles.widest.toFixed(1)})`);
+// Twelve degrees is MESSY_TURN, which the dial reaches at 1 and never
+// passes however far somebody turns it.
+check(messAngles.widest <= 12,
+  `none of them past the dial's limit (${messAngles.widest.toFixed(1)} of 12)`);
 
-await evaluate("document.getElementById('messy').click()");
+await dial(0);
 await sleep(400);
-await evaluate("document.getElementById('messy').click()");
+await dial(1);
 await sleep(500);
 const messAgain = await evaluate(`(() => { const s = ${scene};
   return s.piles.flatMap(p => p.cards.map(c => Math.round(c.angle * 100))).join(); })()`);
 const stillMessy = await evaluate(`(() => { const s = ${scene};
   return s.piles.flatMap(p => p.cards.map(c => c.angle)).some(a => Math.abs(a) > 0.2); })()`);
 check(stillMessy === true && messAgain.length > 0, 'turning it off and on again brings the mess back');
+
+// Halfway up the dial is half the angle. A game picking numbers needs them
+// to mean something next to each other.
+await dial(0.5);
+await sleep(500);
+const halfWay = await evaluate(`(() => { const s = ${scene};
+  return Math.max(...s.piles.flatMap(p => p.cards.map(c => Math.abs(c.angle)))); })()`);
+check(Math.abs(halfWay - messAngles.widest / 2) < 0.01,
+  `and half the dial is half the angle (${halfWay.toFixed(1)} of ${messAngles.widest.toFixed(1)})`);
+await dial(0);
 
 // A messy pile: one that was thrown at rather than dealt onto. The angles
 // have to vary, stay inside what the stack allowed, and be the same every
@@ -242,8 +257,9 @@ check(tilted.squared.widest === 0,
   `a pile that was dealt onto stays square (${tilted.squared.widest} degrees)`);
 check(tilted.messy.turned === tilted.messy.cards,
   `every card on a messy pile is turned (${tilted.messy.turned}/${tilted.messy.cards})`);
-check(tilted.messy.widest <= tilted.messy.allowed,
-  `and none of them past what it allows (${tilted.messy.widest.toFixed(1)} of ${tilted.messy.allowed})`);
+const ceiling = tilted.messy.allowed * 12;
+check(tilted.messy.widest <= ceiling,
+  `and none past the dial's ${ceiling.toFixed(1)}° (${tilted.messy.widest.toFixed(1)})`);
 
 // And it settles rather than rolls: laying the pile out again must not move
 // anything.
