@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  COURT_PAPER,
   CourtPalette,
+  courtPaper,
   CourtRank,
   COURT_RANKS,
   courtArtHeight,
@@ -55,7 +55,8 @@ function sourceSvg(rank: CourtRank, suit: string): Promise<string> {
 export function courtTextureKey(
   palette: CourtPalette, rank: string, suit: string, width: number,
 ): string {
-  const ink = `${palette.ink}${palette.gold}${palette.red}`.replace(/#/g, '');
+  const ink = `${palette.ink}${palette.gold}${palette.red}${courtPaper(palette)}`
+    .replace(/#/g, '');
   return `pce-court-svg-${ink}-${Math.round(width)}-${rank}-${suit}`;
 }
 
@@ -88,8 +89,10 @@ export async function renderCourt(
     if (!pen) throw new Error('court art: no 2d context');
     pen.drawImage(image, 0, 0, source.width, source.height);
 
-    // Then the source's own marks go, in the card's own paper.
-    pen.fillStyle = COURT_PAPER;
+    // Then the source's own marks go, in the card's own paper - which has to
+    // be the same paper the board fills the card with, or the wipe reads as a
+    // patch of a slightly different white stuck over the art.
+    pen.fillStyle = courtPaper(palette);
     for (const wipe of courtWipeRects(source)) {
       pen.fillRect(wipe.x, wipe.y, wipe.width, wipe.height);
     }

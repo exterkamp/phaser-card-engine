@@ -29,6 +29,8 @@
       }
       .home:hover, .home:focus-visible { border-color: #ffd166; color: #ffd166; }
       #board.deuter { filter: url(#deuteranopia); }
+      label { font-size: 0.72rem; display: flex; align-items: center; gap: 0.3rem; color: #9fc4a4; }
+      input[type=color] { width: 2.2rem; height: 1.6rem; padding: 0; border: 1px solid #cfead0; border-radius: 3px; background: none; cursor: pointer; }
       button.on { background: #ffd166; color: #13463a; border-color: #ffd166; }
     </style>
   </head>
@@ -44,6 +46,8 @@
     <div id="board"></div>
     <p id="note"></p>
     <div class="row">
+      <label>stock <input type="color" id="paper" /></label>
+      <label>red suits <input type="color" id="suitink" /></label>
       <button id="flip">Turn them over</button>
       <button id="deuter">Deuteranopia</button>
     </div>
@@ -52,7 +56,11 @@
       what a deck color changes &mdash; turn the cards over and six decks are
       one deck. A court is a painting rather than a pip, and takes its colors
       from the deck&rsquo;s palette instead of the suit&rsquo;s ink; all seven
-      are at <a href="/courts.html">courts</a>.
+      are at <a href="/courts.html">courts</a>. <strong>Stock</strong> moves
+      the card and its courts together. <strong>Red suits</strong> prints
+      hearts and diamonds in whatever you like &mdash; they go on counting as
+      red, because what a card is printed in and what a rule calls it were
+      never the same question.
     </p>
 
     <!-- A deuteranope's view, by the Vi&eacute;not matrix. The six fills were

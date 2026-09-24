@@ -6,8 +6,10 @@ import {
   COURT_PALETTES,
   COURT_RANKS,
   COURT_SOURCE,
+  COURT_PAPER,
   COURT_SOURCE_INKS,
   courtArtHeight,
+  courtPaper,
   courtCropRect,
   courtSourcePath,
   courtSourceSize,
@@ -69,6 +71,31 @@ describe('recoloring', () => {
 
   it('carries the strays across with the color they belong to', () => {
     expect(recolorCourt('<path fill="#5456aa"/>', press)).toBe(`<path fill="${press.ink}"/>`);
+  });
+});
+
+describe('paper', () => {
+  it('stays the near-white the source was drawn on when nothing says otherwise', () => {
+    expect(courtPaper(press)).toBe(COURT_PAPER);
+    expect(recolorCourt('<path fill="#ffffff"/>', press)).toBe('<path fill="#ffffff"/>');
+  });
+
+  it('moves when a palette gives it a stock', () => {
+    const cream = { ...press, paper: '#f4ecd8' };
+    expect(courtPaper(cream)).toBe('#f4ecd8');
+    expect(recolorCourt('<path fill="#ffffff"/>', cream)).toBe('<path fill="#f4ecd8"/>');
+  });
+
+  // The strays snap like every other role, or 42% of the art moves and the
+  // few hundred antialiased near-whites stay behind as a pale fringe.
+  it('carries the near-white strays with it', () => {
+    const cream = { ...press, paper: '#f4ecd8' };
+    expect(recolorCourt('<path fill="#fffdff"/>', cream)).toBe('<path fill="#f4ecd8"/>');
+  });
+
+  it('leaves black alone, which is the mass the line work sits on', () => {
+    const cream = { ...press, paper: '#f4ecd8' };
+    expect(recolorCourt('<path fill="#000000"/>', cream)).toBe('<path fill="#000000"/>');
   });
 });
 

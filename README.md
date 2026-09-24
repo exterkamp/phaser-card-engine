@@ -37,6 +37,7 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colorOf`, `isRed`, `isBlack`, `sameColor`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColor`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colors and the guards that keep a bad value out of storage |
+| `ink.ts` | `defaultInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
 | `court.ts` | `COURT_PALETTES`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
 | `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the seven card backs, and the suit glyphs |
@@ -424,6 +425,28 @@ own text and textures unless you override it.
 `phaser-card-engine/phaser`, so a game that only wants the cards, the shuffling
 and the stack geometry never installs it.
 
+### The stock, and what a suit is printed in
+
+```ts
+new CardSprite(this, card, {
+  paper: 0xf4ecd8,                                   // the card stock
+  ink: { hearts: 0x2e8b57, diamonds: 0x2e8b57 },     // green hearts
+});
+```
+
+`paper` is the fill behind the face. It moves the court's paper with it — a
+portrait printed on last week's white while the card under it is cream reads
+as a sticker — and the hairline edge follows too, as a shade of the stock
+rather than a grey rule that only suited near-white.
+
+`ink` is what each suit is drawn in: a map, or a `(suit) => number`. A map may
+name only the suits it changes.
+
+**None of it has to agree with `colorOf`.** A deck may print its hearts in
+green and they go on counting as `'red'` to every rule that asks, because what
+a card is printed in and what a rule calls it were never the same question —
+see `/colors.html`, which lets you set both and watch them disagree.
+
 ## Courts: a deck is a palette
 
 The twelve court cards are Dmitry Fomin's CC0 English pattern deck, and the
@@ -452,13 +475,21 @@ this.dealEverything();                 // pips now, portraits shortly
 Every demo but `/courts.html` does exactly that. Await it only if you need the
 first painted frame to already have portraits in it.
 
-**Three of the five inks move.** The source deck is drawn in five colors and
+**Four of the five inks move.** The source deck is drawn in five colors and
 nothing else. Gold and red are the garment fields; ink is every line on every
 face, hand and lock of hair — 12% of the art but the whole of its drawing, and
-moving it changes a deck's character more than either field does. Black and
-paper stay put: black is the mass the line work sits on, and paper is 42% of
-the art and has to stay in step with the card fill drawn underneath it or the
-art reads as a sticker stuck on a white card.
+moving it changes a deck's character more than either field does.
+
+Paper is the fourth, and the rule about it cuts the other way now. It is 42%
+of the art and has to stay in step with the card fill drawn underneath it or
+the art reads as a sticker stuck on a white card — which used to mean "never
+move it" and now means "move it with the card". Set `paper` on the palette and
+on the `CardSprite` together, or state it once in the palette and let the card
+take it from there.
+
+Black stays put. It is the mass the line work sits on rather than a color
+anything is printed in, and a deck that moves it is a deck whose faces
+dissolve into their own garments.
 
 There are 24 distinct hex values across the twelve files rather than five,
 because Inkscape left rounding strays a unit or two off. Everything read out

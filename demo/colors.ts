@@ -9,15 +9,19 @@ import {
   DEFAULT_BACK_COLOR,
   DISPLAY_FONT,
   SEAT_COLORS,
+  CourtPalette,
   DeckTheme,
   Suit,
+  inkOf,
   backColorCss,
+  colorCss,
   colorOf,
+  cssColor,
+  defaultInk,
   defineSuits,
 } from 'phaser-card-engine';
 import {
-  CardSprite, STANDARD_SUIT_ART, boardRoot, createBoard, defaultInk, preloadCardArt,
-  renderCourt,
+  CardSprite, STANDARD_SUIT_ART, boardRoot, createBoard, preloadCardArt, renderCourt,
 } from 'phaser-card-engine/phaser';
 
 // The colors a card has, which are four different questions.
@@ -68,6 +72,11 @@ class Colors extends Phaser.Scene {
   private courts: CardSprite[] = [];
   private chosen = DEFAULT_BACK_COLOR;
   private marker!: Phaser.GameObjects.Graphics;
+  // The two things this page lets you set. Neither is a rule: the stock is
+  // what the face is printed on, and the ink is what the red suits are
+  // printed in - which they are allowed to be while still counting as red.
+  private paper = 0xfdfdfd;
+  private redInk = defaultInk('hearts');
 
   preload(): void {
     // The star is not a playing-card suit and the package does not assume it.
@@ -80,19 +89,30 @@ class Colors extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#13463a');
     this.root = boardRoot(this);
 
-    this.heading(34, 'Whose deck is this?');
-    this.marker = this.add.graphics();
-    this.root.add(this.marker);
-    this.layBacks();
+    this.build();
 
-    this.heading(364, 'Printed in, and counted as');
-    this.layFaces();
+    const paper = document.getElementById('paper') as HTMLInputElement | null;
+    if (paper) {
+      paper.value = colorCss(this.paper);
+      paper.addEventListener('change', () => {
+        this.paper = cssColor(paper.value);
+        this.build();
+        this.say(`Stock ${paper.value}. The courts are printed on it too — the `
+          + 'wipe over the source\u2019s own index has to be the same paper or it '
+          + 'reads as a patch.');
+      });
+    }
 
-    this.heading(574, 'And a court is none of the above');
-    this.label(240, 596,
-      'the same King three times. Nothing here is the spade\u2019s black.', '#7f9f88');
-    this.layCourts();
-    this.choose(this.chosen);
+    const suit = document.getElementById('suitink') as HTMLInputElement | null;
+    if (suit) {
+      suit.value = colorCss(this.redInk);
+      suit.addEventListener('change', () => {
+        this.redInk = cssColor(suit.value);
+        this.build();
+        this.say(`Hearts and diamonds printed in ${suit.value} — and still `
+          + `${colorOf('hearts')} to every rule that asks.`);
+      });
+    }
 
     document.getElementById('flip')?.addEventListener('click', () => {
       const up = !this.backs[0].card.faceUp;
@@ -104,12 +124,50 @@ class Colors extends Phaser.Scene {
     });
   }
 
+  /**
+   * Everything on the felt, from scratch.
+   *
+   * Paper is baked into the card body texture and into the court portraits,
+   * so changing it is not a property you can set on a live sprite - the
+   * cards have to be made again. Cheap enough at twenty of them, and the
+   * textures for a stock already seen are still in the manager.
+   */
+  private build(): void {
+    this.root.removeAll(true);
+    this.backs = [];
+    this.courts = [];
+    this.marker = this.add.graphics();
+    this.root.add(this.marker);
+
+    this.heading(34, 'Whose deck is this?');
+    this.layBacks();
+    this.heading(364, 'Printed in, and counted as');
+    this.layFaces();
+    this.heading(574, 'And a court is none of the above');
+    this.label(240, 596,
+      'the same King three times. Nothing here is the spade\u2019s black.', '#7f9f88');
+    this.layCourts();
+    this.choose(this.chosen);
+  }
+
+  /** The stock, as the court renderer wants it. */
+  private palette(theme: DeckTheme): CourtPalette {
+    return { ...COURT_PALETTES[theme], paper: colorCss(this.paper) };
+  }
+
+  /** What the red suits are printed in, which is a choice and not a rule. */
+  private ink(): Record<string, number> {
+    return { hearts: this.redInk, diamonds: this.redInk };
+  }
+
   private layBacks(): void {
     BACK_COLORS.forEach((color, i) => {
       const x = 110 + (i % 3) * 130;
       const y = 96 + Math.floor(i / 3) * 144;
       const card: Card = { rank: 'A', suit: 'spades', id: `back-${i}`, faceUp: false };
-      const sprite = new CardSprite(this, card, { width: BACK_W, backColor: color });
+      const sprite = new CardSprite(this, card, {
+        width: BACK_W, backColor: color, paper: this.paper,
+      });
       sprite.setPosition(x, y);
       // An explicit rectangle. A Container has no texture to derive a hit
       // area from, so `setInteractive({ useHandCursor: true })` hands it a
@@ -139,14 +197,16 @@ class Colors extends Phaser.Scene {
     FACES.forEach((suit, i) => {
       const x = 60 + i * 90;
       const y = 436;
-      const ink = defaultInk(suit);
+      const ink = inkOf(this.ink(), suit);
       const card = { rank: 'A', suit, id: `face-${suit}`, faceUp: true } as Card<DeckSuit>;
-      const sprite = new CardSprite<DeckSuit>(this, card, { width: FACE_W });
+      const sprite = new CardSprite<DeckSuit>(this, card, {
+        width: FACE_W, paper: this.paper, ink: this.ink(),
+      });
       sprite.setPosition(x, y);
       this.root.add(sprite);
 
       this.swatch(x, y + 62, ink);
-      this.label(x, y + 76, INK_NAMES[ink] ?? 'other', '#cfead0');
+      this.label(x, y + 76, INK_NAMES[ink] ?? colorCss(ink), '#cfead0');
       // What the package answers on its own, and what a game's own vocabulary
       // answers. They agree on four cards and differ on the fifth, which is
       // the one worth coloring differently.
@@ -167,7 +227,7 @@ class Colors extends Phaser.Scene {
    */
   private layCourts(): void {
     COURT_DECKS.forEach((theme, i) => {
-      const palette = COURT_PALETTES[theme];
+      const palette = this.palette(theme);
       const x = 120 + i * 120;
       const y = 652;
       const card: Card = { rank: 'K', suit: 'spades', id: `court-${theme}`, faceUp: true };

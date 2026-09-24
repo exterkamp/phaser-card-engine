@@ -374,6 +374,49 @@ check(kings.shown === 3, `three courts on the colors page (${kings.shown})`);
 check(kings.distinct === 3,
   `and three different paintings of the same King (${kings.distinct} textures)`);
 
+// Stock. The court is printed on the same paper as the card under it, and
+// the failure this guards is the one the constant was always commented for:
+// a wipe in the old near-white over art on a new stock reads as a patch of a
+// slightly different white stuck onto the card.
+const stock = `(() => {
+  const s = ${colors};
+  const key = s.courts[0].list.filter(o => o.type === 'Image'
+    && o.texture.key.startsWith('pce-court-svg'))[0].texture.key;
+  const src = s.textures.get(key).getSourceImage();
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  const x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  const d = x.getImageData(6, 6, 1, 1).data;
+  return JSON.stringify({
+    card: '#' + s.paper.toString(16).padStart(6, '0'),
+    court: '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''),
+  });
+})()`;
+const white = JSON.parse(await evaluate(stock));
+check(white.card === white.court,
+  `the court is printed on the card's own stock (${white.card} / ${white.court})`);
+
+await evaluate(`(() => { const i = document.getElementById('paper');
+  i.value = '#f4ecd8'; i.dispatchEvent(new Event('change')); return true; })()`);
+await sleep(2600);
+const cream = JSON.parse(await evaluate(stock));
+check(cream.card === '#f4ecd8', `setting the stock moves the card (${cream.card})`);
+check(cream.court === cream.card,
+  `and moves the court's paper with it (${cream.court})`);
+
+// And the ink, which is allowed to disagree with the rule.
+await evaluate(`(() => { const i = document.getElementById('suitink');
+  i.value = '#2e8b57'; i.dispatchEvent(new Event('change')); return true; })()`);
+await sleep(2600);
+const green = JSON.parse(await evaluate(`JSON.stringify({
+  ink: '#' + ${colors}.redInk.toString(16).padStart(6, '0'),
+  rule: window.__colors.loose.hearts,
+})`));
+check(green.ink === '#2e8b57', `hearts can be printed in any ink (${green.ink})`);
+check(green.rule === 'red',
+  'and go on counting as red, because that was never the same question');
+
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
 done(failures ? 1 : 0);

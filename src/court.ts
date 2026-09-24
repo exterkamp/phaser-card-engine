@@ -61,21 +61,30 @@ export const COURT_SOURCE_INKS = {
 export type CourtInkRole = keyof typeof COURT_SOURCE_INKS;
 
 /**
- * The three roles a theme may move.
+ * The roles a theme may move.
  *
  * Gold and red are the garment fields and carry the deck's color. Ink is
  * every line on every face, hand and lock of hair - 12% of the art but the
  * whole of its drawing - and moving it changes the deck's character more than
  * either field does.
  *
- * Black and paper stay put. Black is the mass the line work sits on, and
- * paper is 42% of the art and has to stay in step with the card fill drawn
- * underneath it or the art reads as a sticker stuck on a white card.
+ * Paper is 42% of the art, and the rule about it has always been that it has
+ * to stay in step with the card fill drawn underneath it or the art reads as
+ * a sticker stuck on a white card. That rule used to mean "never move it";
+ * now that a game can choose its own card stock it means the opposite - paper
+ * follows the card. Leave it out and it stays the near-white the source was
+ * drawn on.
+ *
+ * Black stays put. It is the mass the line work sits on rather than a color
+ * anything is printed in, and a deck that moves it is a deck whose faces
+ * dissolve into their own garments.
  */
 export interface CourtPalette {
   ink: string;
   gold: string;
   red: string;
+  /** The card stock. Defaults to the near-white in COURT_PAPER. */
+  paper?: string;
 }
 
 /** The seven themes. These were seven directories of WebP until they were
@@ -167,12 +176,20 @@ export const COURT_SOURCE = {
 } as const;
 
 /**
- * The card stock, and what the source's own marks get painted out with.
+ * The default card stock, and what the source's own marks get painted out
+ * with.
  *
- * Not pure white: it has to match the card fill the board draws, or the
- * patch reads as a lighter rectangle sitting on the card.
+ * Not pure white: it has to match the card fill the board draws, or the patch
+ * reads as a lighter rectangle sitting on the card. A game that sets its own
+ * paper has to move both together, which is why `CourtPalette.paper` and
+ * `CardStyle.paper` are the same decision stated once - see `courtPaper`.
  */
 export const COURT_PAPER = '#fdfdfd';
+
+/** The stock a palette is printed on, defaulted. */
+export function courtPaper(palette: CourtPalette): string {
+  return palette.paper ?? COURT_PAPER;
+}
 
 /**
  * How tall the finished art is for a given width.
@@ -249,7 +266,8 @@ export function recolorCourt(svg: string, palette: CourtPalette): string {
     const want = role === 'ink' ? palette.ink
       : role === 'gold' ? palette.gold
         : role === 'red' ? palette.red
-          : undefined;
+          : role === 'paper' ? palette.paper
+            : undefined;
     return want === undefined ? whole : lead + want;
   });
 }

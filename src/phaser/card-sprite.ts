@@ -14,9 +14,11 @@ import {
   CARD_INDEX_FONT,
   TEXT_OVERSAMPLE,
   cardFaceMetrics,
-  colorOf,
   courtArtRect,
+  SuitInk,
+  cssColor,
   deckThemePath,
+  inkOf,
   isCourtRank,
 } from '../index.js';
 
@@ -39,15 +41,12 @@ export const STANDARD_SUIT_ART: Readonly<Record<string, string>> = {
   clubs: 'club',
 };
 
-const INK_RED = 0xcf2436;
-const INK_BLACK = 0x1a1a1a;
-// A suit this package cannot color is drawn in neither - gold, the color a
-// game generally reaches for when it has invented a suit of its own. Override
-// it with `ink` if that is wrong for yours.
-const INK_OTHER = 0xd8a838;
-
 const CARD_FACE = 0xfdfdfd;
-const CARD_EDGE = 0xd6d6d6;
+// The hairline edge, as a fraction of the paper rather than a color of its
+// own. At the default near-white it lands on #d6d6d6, which is what it was
+// when it was written down; at any other stock it stays a shade of that stock
+// instead of a grey rule nobody asked for.
+const EDGE_OF_PAPER = 0.846;
 const SHADOW = 0x000000;
 const SHADOW_LAYERS = [
   { grow: 3.8, alpha: 0.10 },
@@ -93,13 +92,13 @@ export function preloadCardArt(scene: Phaser.Scene, options: CardArtOptions = {}
 const suitKey = (suit: string) => `pce-suit-${suit}`;
 const backKey = (theme: DeckTheme) => `pce-back-${theme}`;
 
-/** The ink a suit is drawn in, unless the game says otherwise. */
-export function defaultInk(suit: string): number {
-  const color = colorOf(suit);
-  if (color === 'red') return INK_RED;
-  if (color === 'black') return INK_BLACK;
-  return INK_OTHER;
+/** One color scaled toward black, channel by channel. */
+function shade(color: number, factor: number): number {
+  const part = (shift: number) =>
+    Math.round(((color >> shift) & 0xff) * factor) << shift;
+  return part(16) | part(8) | part(0);
 }
+
 
 /**
  * A suit pip in the color it is drawn in, baked into its own texture.
@@ -134,9 +133,11 @@ function inkedSuit(scene: Phaser.Scene, suit: string, ink: number): string {
 
 /** The card body and its shadow, baked once per size and color. */
 function cardBody(
-  scene: Phaser.Scene, metrics: CardFaceMetrics, faceUp: boolean, border: number, dpr: number,
+  scene: Phaser.Scene, metrics: CardFaceMetrics, faceUp: boolean, border: number,
+  dpr: number, paper: number,
 ): string {
-  const key = `pce-body-${Math.round(metrics.width)}-${faceUp ? 'up' : `down-${border.toString(16)}`}-${dpr}`;
+  const face = faceUp ? `up-${paper.toString(16)}` : `down-${border.toString(16)}`;
+  const key = `pce-body-${Math.round(metrics.width)}-${face}-${dpr}`;
   if (scene.textures.exists(key)) return key;
 
   const { width, height, pad, radius } = metrics;
@@ -153,13 +154,13 @@ function cardBody(
       radius + grow,
     );
   }
-  g.fillStyle(faceUp ? CARD_FACE : border, 1);
+  g.fillStyle(faceUp ? paper : border, 1);
   g.fillRoundedRect(pad, pad, width, height, radius);
   // A hairline edge on a face-up card, because one white card fanned over
   // another leaves no seam otherwise and the pile reads as a single tall card
   // with a column of indexes printed down it. A face-down card gets its
   // owner's color in a heavier line, since a flat fill is all it shows.
-  g.lineStyle(faceUp ? 1 : 2, faceUp ? CARD_EDGE : border, 1);
+  g.lineStyle(faceUp ? 1 : 2, faceUp ? shade(paper, EDGE_OF_PAPER) : border, 1);
   g.strokeRoundedRect(pad, pad, width, height, radius);
 
   g.generateTexture(
@@ -175,8 +176,22 @@ export interface CardStyle {
   theme?: DeckTheme;
   /** What the back's ink is printed over. */
   backColor?: number;
-  /** The ink a suit is drawn in. Defaults to red, black, or gold. */
-  ink?: (suit: string) => number;
+  /**
+   * The card stock the face is printed on.
+   *
+   * Moves the court's paper with it, so the portrait stays on the same stock
+   * as the card under it - see `CourtPalette.paper`. The hairline edge
+   * follows too.
+   */
+  paper?: number;
+  /**
+   * The ink each suit is drawn in. Defaults to red, black, or gold.
+   *
+   * A map, or a function. Nothing here has to line up with `colorOf`: a deck
+   * may print its hearts in green and they are still red to every rule that
+   * asks.
+   */
+  ink?: SuitInk;
   suitArt?: Readonly<Record<string, string>>;
   /**
    * Draw the courts from the SVG sources in this palette rather than from the
@@ -209,6 +224,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   private readonly faceParts: Phaser.GameObjects.GameObject[] = [];
   private readonly backColor: number;
   private readonly pixelRatio: number;
+  private readonly paper: number;
 
   // Generic in the suit, because a game that declares one with `defineSuits`
   // has to be able to draw it. Nothing in here needs to know which suits
@@ -221,14 +237,27 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     const width = style.width ?? BASE_CARD_WIDTH;
     const theme = style.theme ?? DEFAULT_DECK_THEME;
     const backColor = style.backColor ?? DEFAULT_BACK_COLOR;
-    const ink = (style.ink ?? defaultInk)(card.suit);
+    const ink = inkOf(style.ink, card.suit);
     const dpr = style.pixelRatio ?? boardPixelRatio(scene);
     const metrics = cardFaceMetrics(width);
+
+    // A theme is a palette, so a card that says nothing about color still
+    // knows which portrait it wants; `courtPalette` is for a deck that is not
+    // one of the seven.
+    const palette = style.courtPalette ?? COURT_PALETTES[theme];
+    // The stock, from whichever of the two said so. The palette is allowed to
+    // carry it because the court has to be printed on the same paper as the
+    // card beneath it, and a game that states it once in the palette it
+    // already hands to `renderCourts` cannot get the two out of step.
+    const paper = style.paper ?? (palette.paper !== undefined
+      ? cssColor(palette.paper) : CARD_FACE);
+
     this.metrics = metrics;
     this.backColor = backColor;
     this.pixelRatio = dpr;
+    this.paper = paper;
 
-    this.plate = scene.add.image(0, 0, cardBody(scene, metrics, true, backColor, dpr))
+    this.plate = scene.add.image(0, 0, cardBody(scene, metrics, true, backColor, dpr, paper))
       .setDisplaySize(metrics.width + 2 * metrics.pad, metrics.height + 2 * metrics.pad);
     this.add(this.plate);
 
@@ -240,11 +269,6 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
 
     // A court portrait, or one big suit. Both sit below the index, which is
     // added last so it draws over either.
-    //
-    // A theme is a palette, so a card that says nothing about color still
-    // knows which portrait it wants; `courtPalette` is for a deck that is not
-    // one of the seven.
-    const palette = style.courtPalette ?? COURT_PALETTES[theme];
     const court = isCourtRank(card.rank)
       ? courtTextureKey(palette, card.rank, card.suit, style.courtWidth ?? 480)
       : undefined;
@@ -330,7 +354,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       (part as Phaser.GameObjects.Image).setVisible(faceUp);
     }
     this.plate.setTexture(
-      cardBody(this.scene, this.metrics, faceUp, this.backColor, this.pixelRatio),
+      cardBody(this.scene, this.metrics, faceUp, this.backColor, this.pixelRatio, this.paper),
     );
     return this;
   }
