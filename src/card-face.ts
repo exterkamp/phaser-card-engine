@@ -184,7 +184,13 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     indexFontSize: 8 / 60,
     indexLeft: 3 / 60,
     indexGap: 0,
-    indexSuitSize: 5.5 / 60,
+    // Three quarters of the rank, which is the proportion the mobile face
+    // has and the one this deck has already been judged on. It matters more
+    // than it looks: the suit glyphs do not fill their own box evenly - a
+    // spade covers 0.68 of its width where a club covers 0.86 - so a corner
+    // sized to leave the suit any smaller than this reads as a spade that
+    // has been shrunk, on the one suit of the four you notice it on.
+    indexSuitSize: 6 / 60,
     stacked: true,
     corners: 2,
     inkHalfHeight: 2.9 / 60,
@@ -225,7 +231,9 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     indexFontSize: 11 / 60,
     indexLeft: 2.5 / 60,
     indexGap: 0,
-    indexSuitSize: 7 / 60,
+    // The same three quarters. A jumbo index is a big rank, not a big rank
+    // over a small suit.
+    indexSuitSize: 8 / 60,
     stacked: true,
     corners: 2,
     inkHalfHeight: 4.3 / 60,

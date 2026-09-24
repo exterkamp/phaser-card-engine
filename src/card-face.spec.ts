@@ -130,6 +130,23 @@ describe('the three faces', () => {
     }
   });
 
+  // The suit under the rank has to hold its own against it, and it has to do
+  // so the same way on all three: a corner that gets the proportion right on
+  // one face and not another reads as a shrunken pip rather than as a
+  // different layout. Measured off the mobile face, which is the one this
+  // deck has been looked at most.
+  it('sizes the corner suit against the rank the same way on every face', () => {
+    const shares = FACE_STYLES.map((face) => {
+      const m = cardFaceMetrics(60, face);
+      return m.index.suitSize / m.index.fontSize;
+    });
+    for (const share of shares) {
+      expect(share).toBeGreaterThan(0.68);
+      expect(share).toBeLessThan(0.80);
+    }
+    expect(Math.max(...shares) - Math.min(...shares)).toBeLessThan(0.05);
+  });
+
   it('scales every face with the card', () => {
     for (const face of FACE_STYLES) {
       const one = cardFaceMetrics(60, face);
