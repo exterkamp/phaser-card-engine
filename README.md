@@ -218,14 +218,14 @@ npm install
 npm run demo        # http://localhost:4390, and the LAN address it prints
 ```
 
-Three pages:
+Five pages:
 
 - **stacks** at `/` — one of every fan direction, in both draw orders
 - **card sizes** at `/sizes.html` — the same card at seven widths from 24 to 168
 - **throwing** at `/throws.html` — tap the felt to throw a card at that spot,
   or tap a pile to throw one onto it
 - **hold'em** at `/holdem.html` — four seats dealt automatically, the way a
-  dealer deals it
+  dealer deals it, each seat holding its cards turned towards itself
 - **hands** at `/hands.html` — a fanned hand you can throw cards into, one
   face up in front of you and one turned round across the table
 
@@ -460,13 +460,23 @@ browser.
 `demo/holdem.ts` is the smallest thing that looks like a real game: four seats,
 a board, a burn pile and a deck, dealt automatically. There are no rules in it
 — nothing is ranked, nobody bets — because what it is showing is that the
-dealing falls out of the two primitives. Every place a card can end up is a
-`Stack`; every card gets there by being thrown at one.
+dealing falls out of the primitives. What lies on the table is a `Stack`; what a
+player holds is a `Hand`; every card gets to either by being thrown at it.
 
-The seats' hole cards are a fan running right with a step narrower than a card,
-so the two overlap. The board is a fan running right with a step *wider* than a
-card, so the five sit in a row without touching. The burn pile and the deck are
-squared. That is the whole table.
+Which is the distinction the two primitives exist to make. The board is a fan
+running right with a step *wider* than a card, so the five sit in a row without
+touching; the burn pile and the deck are squared. Those are cards on a table.
+The seats' hole cards are not: each seat is a `Hand`, and its `facing` says
+which way that player is sitting — so the player across the table has their
+cards upside down from here and the two at the sides have theirs turned
+sideways, all from one number per seat. Try it with the seats as stacks and the
+table reads as four piles belonging to nobody.
+
+There is a smaller lesson in the labels. They are placed off `handBounds`
+rather than off a card's height, because a fanned card is turned and a turned
+card reaches past its own corner — and the two side seats get theirs above the
+hand rather than beside it, since a hand turned a quarter round is as wide as a
+card is tall and there is no felt left to the side of it.
 
 And the deal is a function that reads like the back of a rulebook:
 
@@ -487,8 +497,10 @@ round the table** — not two cards to each seat in turn, which is the thing
 everybody gets wrong and which looks wrong even when you cannot say why.
 
 `npm run smoke` checks that order, along with the counts, that no card is dealt
-twice, that every card comes to rest square after spinning, and that the right
-piles are face up.
+twice, that the right piles are face up, and that every card comes to rest
+where its pile holds it after spinning — square on the table, and at the fan's
+own angle in a hand, which is the claim that catches a throw finishing a few
+degrees off and being snapped straight.
 
 ## What is deliberately not in it
 

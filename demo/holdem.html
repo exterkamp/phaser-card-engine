@@ -27,8 +27,10 @@
     <h1>Dealing hold'em</h1>
     <p>
       Four seats, two cards each dealt one at a time round the table, then a
-      burn and the flop, a burn and the turn, a burn and the river. Every pile
-      is a <code>Stack</code> and every card gets there by <code>throwCard</code>.
+      burn and the flop, a burn and the turn, a burn and the river. Each seat
+      <em>holds</em> its cards — a <code>Hand</code>, turned to face that seat —
+      while the board, the burn and the deck lie on the table as
+      <code>Stack</code>s. Every card gets there by <code>throwCard</code>.
     </p>
     <div id="board"></div>
     <p id="note">Press Deal.</p>

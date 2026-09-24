@@ -170,7 +170,15 @@ check(
 const hand = JSON.parse(await evaluate(`JSON.stringify({
   counts: Object.fromEntries([...${table}.piles].map(([k, v]) => [k, v.cards.length])),
   deck: ${table}.deck.length,
-  square: [...${table}.piles.values()].every(p => p.cards.every(c => c.angle === 0)),
+  // Cards on the table rest square; cards in a hand rest at the angle that
+  // hand holds them at, which is not the same claim and is the one that
+  // catches a throw finishing a few degrees off and being snapped straight.
+  settled: [...${table}.piles.values()].every((p) => {
+    if (p.kind === 'stack') return p.cards.every(c => c.angle === 0);
+    const places = window.__pce.handPositions(p.hand, p.cards.length);
+    return p.cards.every((c, i) => Math.abs(
+      ((c.angle - places[i].angle + 540) % 360) - 180) < 0.5);
+  }),
   faceUp: Object.fromEntries([...${table}.piles].map(([k, v]) => [k, v.cards.every(c => c.card.faceUp)])),
   unique: (() => {
     const all = [...[...${table}.piles.values()].flatMap(p => p.cards), ...${table}.deck];
@@ -182,7 +190,8 @@ check(JSON.stringify(hand.counts) === JSON.stringify({
 }), 'every pile ends with the right number of cards');
 check(hand.deck === 36, `thirty-six left in the deck (${hand.deck})`);
 check(hand.unique === 52, `no card dealt twice (${hand.unique} distinct)`);
-check(hand.square === true, 'every card comes to rest square, after spinning');
+check(hand.settled === true,
+  'every card comes to rest where its pile holds it, after spinning');
 check(hand.faceUp.you && hand.faceUp.board && !hand.faceUp.west && !hand.faceUp.burn,
   'your cards and the board face up, everyone else-s face down');
 
