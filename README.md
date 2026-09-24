@@ -231,6 +231,8 @@ its top-left corner to get back to it:
 - **hands** at `/hands.html` — a fanned hand you can throw cards into, one
   face up in front of you and one turned round across the table
 - **courts** at `/courts.html` — the twelve court cards, recoloured live
+- **colours** at `/colours.html` — the deck colour, the ink and what a rule
+  counts a suit as, which are three different questions
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one

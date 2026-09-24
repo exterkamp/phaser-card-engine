@@ -89,7 +89,7 @@ await send('Page.navigate', { url: `${root}/` });
 await sleep(700);
 const tiles = JSON.parse(await evaluate(
   `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.getAttribute('href')))`));
-check(tiles.length === 6, `the home screen lists six demos (${tiles.length})`);
+check(tiles.length === 7, `the home screen lists seven demos (${tiles.length})`);
 let reachable = 0;
 let wayBack = 0;
 for (const href of tiles) {
@@ -316,6 +316,49 @@ await sleep(3000);
 const invented = JSON.parse(await evaluate(portraits));
 check(invented.drawn === 12, `an invented palette renders all twelve too (${invented.drawn})`);
 check(invented.press === 0, 'and renders its own textures rather than reusing press');
+
+// And the colours page, whose claim is that a card's three colours are three
+// different questions. Four cards agree; the star is the one that does not,
+// and if the three ever collapse into one the page stops meaning anything.
+console.log('\nand the colours');
+await send('Page.navigate', { url: `${root}/colours.html` });
+if (!await until('!!window.__colours', 30000)) {
+  console.log('  FAIL the colours page never loaded');
+  done(1);
+}
+await sleep(500);
+const three = JSON.parse(await evaluate('JSON.stringify(window.__colours)'));
+check(three.printed.star === 0xd8a838,
+  `the star is printed in gold, not red or black (#${three.printed.star.toString(16)})`);
+check(three.loose.star === null,
+  'colourOf refuses to guess at a suit it has never heard of');
+check(three.declared.star === 'black',
+  'and the game that declared it says black');
+check(three.loose.hearts === 'red' && three.declared.hearts === 'red'
+  && three.printed.hearts === 0xcf2436,
+  'the four standard suits give the same answer three times over');
+
+// Tapping a back has to actually choose it - the hit area on a Container is
+// measured from its display origin, and getting that wrong leaves a card that
+// looks fine and does nothing.
+const colours = 'Object.values(window.__game.scene.keys)[0]';
+const before = await evaluate(`${colours}.chosen`);
+const tap = JSON.parse(await evaluate(`(() => {
+  const s = ${colours}, b = s.backs[2], m = b.getWorldTransformMatrix();
+  const c = document.querySelector('canvas').getBoundingClientRect();
+  return JSON.stringify({
+    x: Math.round(c.left + m.tx * (c.width / window.__game.scale.width)),
+    y: Math.round(c.top + m.ty * (c.height / window.__game.scale.height)),
+  });
+})()`));
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: tap.x, y: tap.y, button: 'none' });
+await sleep(150);
+await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tap.x, y: tap.y, button: 'left', clickCount: 1, buttons: 1 });
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tap.x, y: tap.y, button: 'left', clickCount: 1 });
+await sleep(400);
+const after = await evaluate(`${colours}.chosen`);
+check(after !== before && after === 0x4f6b38,
+  `tapping a back chooses that deck (#${Number(after).toString(16)})`);
 
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');

@@ -6,6 +6,7 @@ import {
   Card,
   CardFaceMetrics,
   COURT_PALETTES,
+  Suit,
   CourtPalette,
   DeckTheme,
   DEFAULT_BACK_COLOR,
@@ -198,7 +199,7 @@ export interface CardStyle {
   pixelRatio?: number;
 }
 
-export class CardSprite extends Phaser.GameObjects.Container {
+export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Container {
   readonly metrics: CardFaceMetrics;
   // `plate` rather than `body`, which is a Container member already - Phaser
   // keeps a physics body there. The two games this came from have each
@@ -209,7 +210,13 @@ export class CardSprite extends Phaser.GameObjects.Container {
   private readonly backColor: number;
   private readonly pixelRatio: number;
 
-  constructor(scene: Phaser.Scene, readonly card: Card, style: CardStyle = {}) {
+  // Generic in the suit, because a game that declares one with `defineSuits`
+  // has to be able to draw it. Nothing in here needs to know which suits
+  // exist - the art comes from `suitArt` and the ink from `ink` - so the
+  // parameter only has to stop the type system refusing a perfectly good
+  // card. Defaulting to Suit keeps every existing `new CardSprite(...)` as it
+  // was.
+  constructor(scene: Phaser.Scene, readonly card: Card<S>, style: CardStyle = {}) {
     super(scene, 0, 0);
     const width = style.width ?? BASE_CARD_WIDTH;
     const theme = style.theme ?? DEFAULT_DECK_THEME;
