@@ -382,7 +382,12 @@ const dark = JSON.parse(await evaluate(`(() => {
   c.width = src.width; c.height = src.height;
   const x = c.getContext('2d');
   x.drawImage(src, 0, 0);
+  // Two samples. The left one falls inside the box where the source's own
+  // index was painted out, so it would read as stock even if nothing else
+  // worked; the right one is open sky above the figure's shoulder and is the
+  // one that says the repaint actually ran.
   const corner = x.getImageData(6, 6, 1, 1).data;
+  const sky = x.getImageData(src.width - 8, 6, 1, 1).data;
   const all = x.getImageData(0, 0, src.width, src.height).data;
   let pale = 0;
   for (let i = 0; i < all.length; i += 4) {
@@ -391,11 +396,13 @@ const dark = JSON.parse(await evaluate(`(() => {
   return JSON.stringify({
     corner: '#' + [corner[0], corner[1], corner[2]]
       .map(v => v.toString(16).padStart(2, '0')).join(''),
+    sky: '#' + [sky[0], sky[1], sky[2]]
+      .map(v => v.toString(16).padStart(2, '0')).join(''),
     pale: pale / (src.width * src.height),
   });
 })()`));
-check(dark.corner === '#0b0b0f',
-  `a dark stock reaches the court's background (${dark.corner})`);
+check(dark.corner === '#0b0b0f' && dark.sky === '#0b0b0f',
+  `a dark stock reaches the court's background (${dark.corner}, ${dark.sky})`);
 check(dark.pale > 0.04,
   `and the figure keeps its face, hands and linen (${(dark.pale * 100).toFixed(1)}% pale)`);
 

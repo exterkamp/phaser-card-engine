@@ -134,22 +134,27 @@ export async function renderCourt(
  * a sword are *holes* in the drawing, and what shows through them is the
  * full-card rectangle every one of the twelve opens by painting. One color
  * for the card and for the figure's own whites therefore means a dark deck
- * takes the King's face down with it - which is exactly what it looked like.
+ * takes the King's face down with it.
  *
- * Nothing in the file distinguishes the two. What distinguishes them is what
- * they touch: the background runs to the edge of the card and a face does
- * not. So the art is rasterised with every white as the highlight, and this
- * floods inward from the border to put the stock back - reaching the
- * background and stopping at the first thing the figure draws.
+ * Nothing in the file separates the two, so this separates them by where they
+ * are: the background is the sky above the figure. Each column is walked down
+ * from the top edge and repainted until it meets the first thing the figure
+ * draws, and then stopped.
  *
- * Scanline rather than per-pixel recursion, because the region is most of the
- * card and a pixel-at-a-time stack on half a million pixels is both slow and
- * a way to blow the call stack.
+ * A flood fill was the obvious thing and it was wrong. Connectivity does not
+ * hold here: a Queen's cloak is white and runs unbroken into the white margin
+ * beside her, so a flood that starts at the border arrives inside the figure
+ * and takes her shoulder - and her face, by way of the white between the
+ * strands of her hair. Going down each column instead cannot reach anything
+ * the figure has drawn over, because it stops at the first pixel of it.
  *
- * Edges are blended rather than switched. A pixel halfway between the
- * highlight and the ink of an outline is halfway repainted, so the figure
- * keeps its antialiasing instead of gaining a pale fringe against a dark
- * stock.
+ * What this gives up is background enclosed by the figure - the gap between a
+ * crown and a raised sceptre keeps the highlight rather than the stock. That
+ * is a small pale notch against a dark card, where the flood's failure was a
+ * Queen with no face.
+ *
+ * Edges are blended rather than switched, so the figure keeps its
+ * antialiasing instead of gaining a pale fringe.
  */
 function partBackground(
   pen: CanvasRenderingContext2D, width: number, height: number,
@@ -159,7 +164,6 @@ function partBackground(
   const target = cssRgb(to);
   const image = pen.getImageData(0, 0, width, height);
   const data = image.data;
-  const seen = new Uint8Array(width * height);
 
   // Generous enough to carry the antialiased ramp, tight enough that it
   // cannot cross into one of the other four inks - the source is drawn in
@@ -167,48 +171,19 @@ function partBackground(
   const REACH = 60;
   const REACH2 = REACH * REACH;
 
-  const near = (at: number) => {
-    const dr = data[at] - source[0];
-    const dg = data[at + 1] - source[1];
-    const db = data[at + 2] - source[2];
-    return dr * dr + dg * dg + db * db;
-  };
-
-  const repaint = (at: number, distance2: number) => {
-    // Full stock where it matched exactly, tapering out across the ramp.
-    const mix = 1 - Math.sqrt(distance2) / REACH;
-    data[at] += (target[0] - data[at]) * mix;
-    data[at + 1] += (target[1] - data[at + 1]) * mix;
-    data[at + 2] += (target[2] - data[at + 2]) * mix;
-  };
-
-  const stack: number[] = [];
-  const push = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const index = y * width + x;
-    if (seen[index]) return;
-    if (near(index * 4) > REACH2) return;
-    seen[index] = 1;
-    stack.push(index);
-  };
-
-  for (let x = 0; x < width; x++) { push(x, 0); push(x, height - 1); }
-  for (let y = 0; y < height; y++) { push(0, y); push(width - 1, y); }
-
-  while (stack.length) {
-    const index = stack.pop() as number;
-    const y = Math.floor(index / width);
-    let left = index - y * width;
-    let right = left;
-    // Run out to both ends of this span before queueing the neighbours.
-    while (left > 0 && near((y * width + left - 1) * 4) <= REACH2) left--;
-    while (right < width - 1 && near((y * width + right + 1) * 4) <= REACH2) right++;
-    for (let x = left; x <= right; x++) {
-      const at = y * width + x;
-      if (!seen[at]) seen[at] = 1;
-      repaint(at * 4, near(at * 4));
-      if (y > 0) push(x, y - 1);
-      if (y < height - 1) push(x, y + 1);
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      const at = (y * width + x) * 4;
+      const dr = data[at] - source[0];
+      const dg = data[at + 1] - source[1];
+      const db = data[at + 2] - source[2];
+      const distance2 = dr * dr + dg * dg + db * db;
+      if (distance2 > REACH2) break;
+      // Full stock where it matched exactly, tapering out across the ramp.
+      const mix = 1 - Math.sqrt(distance2) / REACH;
+      data[at] += (target[0] - data[at]) * mix;
+      data[at + 1] += (target[1] - data[at + 1]) * mix;
+      data[at + 2] += (target[2] - data[at + 2]) * mix;
     }
   }
   pen.putImageData(image, 0, 0);

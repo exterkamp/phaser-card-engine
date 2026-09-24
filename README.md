@@ -498,13 +498,25 @@ rectangle, and what shows through the gaps in the figure is that rectangle. So
 one color for the card and for the figure's whites means a dark stock takes
 the King's face down with it and leaves line work floating on nothing.
 
-Nothing in the file tells the two apart. What tells them apart is **what they
-touch**: the background runs to the edge of the card and a face does not. So
-the art is rasterized with every white as the `highlight`, and `partBackground`
-floods inward from the border to put the stock back — reaching the background
-and stopping at the first thing the figure draws. Edges are blended rather
-than switched, so the figure keeps its antialiasing instead of gaining a pale
-fringe against a dark stock.
+Nothing in the file tells the two apart, so `partBackground` separates them by
+**where they are**: the background is the sky above the figure. The art is
+rasterized with every white as the `highlight`, then each column is walked down
+from the top edge and repainted until it meets the first thing the figure
+draws.
+
+A flood fill from the border was the obvious way and it was wrong.
+Connectivity does not hold in this artwork: a Queen's cloak is white and runs
+unbroken into the white margin beside her, so a flood that starts at the
+border arrives *inside* the figure and takes her shoulder — and then her face,
+by way of the white between the strands of her hair. Going down each column
+cannot reach anything the figure has drawn over.
+
+What that gives up is background enclosed by the figure: the gap between a
+crown and a raised sceptre keeps the highlight rather than the stock. A small
+pale notch, against a Queen with no face.
+
+Edges are blended rather than switched, so the figure keeps its antialiasing
+instead of gaining a pale fringe against a dark stock.
 
 `highlight` defaults to `COURT_PAPER` rather than to `paper`, so a deck that
 only asks for a dark card still gets a face. The flood is skipped entirely
