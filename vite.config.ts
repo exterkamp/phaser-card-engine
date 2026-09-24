@@ -45,7 +45,7 @@ export default defineConfig({
         holdem: resolve(__dirname, 'demo/holdem.html'),
         hands: resolve(__dirname, 'demo/hands.html'),
         courts: resolve(__dirname, 'demo/courts.html'),
-        colours: resolve(__dirname, 'demo/colours.html'),
+        colors: resolve(__dirname, 'demo/colors.html'),
       },
     },
   },

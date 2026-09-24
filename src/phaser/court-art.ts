@@ -18,14 +18,14 @@ import {
 // them: run the twelve sources through a renderer at build time, once per
 // palette, and ship the WebP. That is faster to start, and it was 84 files
 // and 4.1MB. What it cannot do is a palette nobody thought of - a game with
-// its own colours has to go and rebuild the art - and that is the whole of
+// its own colors has to go and rebuild the art - and that is the whole of
 // why this replaced it.
 //
 // Measured, on the twelve at 480px, outside a scene: 280ms on a desktop and
 // about a second on a mid-range phone. Inside a running scene it is roughly
 // three times that, for the reason in renderCourts below. Either way it is
 // once per palette - they are cached in the texture manager afterwards - and
-// the recolour is only 12ms of it. The rasterising is the cost, so the same
+// the recolor is only 12ms of it. The rasterising is the cost, so the same
 // palette at two sizes costs twice.
 
 /** Fetched once per file and kept, so changing palette never refetches. */

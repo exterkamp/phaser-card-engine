@@ -7,13 +7,13 @@ import {
   STANDARD_SUITS,
   SUITS,
   cardName,
-  colourOf,
+  colorOf,
   defineSuits,
   isBlack,
   isRed,
   isStandardSuit,
   rankValue,
-  sameColour,
+  sameColor,
   sameFace,
   standardDeck,
 } from './cards.js';
@@ -39,15 +39,15 @@ describe('the deck', () => {
   });
 });
 
-describe('suits and colours', () => {
+describe('suits and colors', () => {
   it('knows which suits are red', () => {
     expect(SUITS.filter(isRed)).toEqual(['hearts', 'diamonds']);
   });
 
   it('answers the question a tableau actually asks', () => {
-    expect(sameColour('hearts', 'diamonds')).toBe(true);
-    expect(sameColour('spades', 'clubs')).toBe(true);
-    expect(sameColour('hearts', 'spades')).toBe(false);
+    expect(sameColor('hearts', 'diamonds')).toBe(true);
+    expect(sameColor('spades', 'clubs')).toBe(true);
+    expect(sameColor('hearts', 'spades')).toBe(false);
   });
 
   it('knows which suits a deck is built from', () => {
@@ -55,70 +55,70 @@ describe('suits and colours', () => {
     expect(isStandardSuit('star')).toBe(false);
   });
 
-  it('gives the four their colours', () => {
-    expect(SUITS.map(colourOf)).toEqual(['black', 'red', 'red', 'black']);
+  it('gives the four their colors', () => {
+    expect(SUITS.map(colorOf)).toEqual(['black', 'red', 'red', 'black']);
     expect(SUITS.filter(isRed)).toEqual(['hearts', 'diamonds']);
     expect(SUITS.filter(isBlack)).toEqual(['spades', 'clubs']);
   });
 
   // The reason isBlack exists rather than !isRed: once a game can add suits,
   // "not red" stops meaning "black", and a gold star is neither.
-  it('says nothing about the colour of a suit it has never heard of', () => {
-    expect(colourOf('star')).toBeUndefined();
+  it('says nothing about the color of a suit it has never heard of', () => {
+    expect(colorOf('star')).toBeUndefined();
     expect(isRed('star')).toBe(false);
     expect(isBlack('star')).toBe(false);
   });
 
-  it('will not call an unknown suit the same colour as anything', () => {
-    expect(sameColour('star', 'spades')).toBe(false);
-    expect(sameColour('star', 'hearts')).toBe(false);
-    expect(sameColour('star', 'star')).toBe(false);
-    expect(sameColour('spades', 'clubs')).toBe(true);
+  it('will not call an unknown suit the same color as anything', () => {
+    expect(sameColor('star', 'spades')).toBe(false);
+    expect(sameColor('star', 'hearts')).toBe(false);
+    expect(sameColor('star', 'star')).toBe(false);
+    expect(sameColor('spades', 'clubs')).toBe(true);
   });
 });
 
 describe('a game adding suits of its own', () => {
   it('gets them in the vocabulary without this package knowing them', () => {
-    const vocab = defineSuits({ star: { colour: 'gold' }, rose: { colour: 'red' } });
+    const vocab = defineSuits({ star: { color: 'gold' }, rose: { color: 'red' } });
     expect(vocab.all).toEqual([...SUITS, 'star', 'rose']);
     expect(vocab.isStandard('star')).toBe(false);
     expect(vocab.isStandard('hearts')).toBe(true);
   });
 
-  it('decides for itself what colour they are', () => {
-    const vocab = defineSuits({ star: { colour: 'gold' }, rose: { colour: 'red' } });
-    expect(vocab.colourOf('star')).toBe('gold');
+  it('decides for itself what color they are', () => {
+    const vocab = defineSuits({ star: { color: 'gold' }, rose: { color: 'red' } });
+    expect(vocab.colorOf('star')).toBe('gold');
     expect(vocab.isRed('rose')).toBe(true);
-    expect(vocab.sameColour('rose', 'hearts')).toBe(true);
+    expect(vocab.sameColor('rose', 'hearts')).toBe(true);
   });
 
   // A suit that is neither red nor black is both questions answered no, which
-  // is what stops a rule about alternating colours quietly swallowing it.
+  // is what stops a rule about alternating colors quietly swallowing it.
   it('lets a suit be neither red nor black', () => {
-    const vocab = defineSuits({ star: { colour: 'gold' } });
+    const vocab = defineSuits({ star: { color: 'gold' } });
     expect(vocab.isRed('star')).toBe(false);
     expect(vocab.isBlack('star')).toBe(false);
-    expect(vocab.sameColour('star', 'spades')).toBe(false);
-    expect(vocab.sameColour('star', 'hearts')).toBe(false);
-    // Two golds are the same colour as each other, though.
-    expect(vocab.sameColour('star', 'star')).toBe(true);
+    expect(vocab.sameColor('star', 'spades')).toBe(false);
+    expect(vocab.sameColor('star', 'hearts')).toBe(false);
+    // Two golds are the same color as each other, though.
+    expect(vocab.sameColor('star', 'star')).toBe(true);
   });
 
   // And a game whose rules want the new suit treated as one of the two says
   // so - which is nertz's case, where a star is gold on the card and black to
   // the tableau.
   it('lets a suit play as black while being printed in gold', () => {
-    const vocab = defineSuits({ star: { colour: 'black' } });
+    const vocab = defineSuits({ star: { color: 'black' } });
     expect(vocab.isBlack('star')).toBe(true);
-    expect(vocab.sameColour('star', 'clubs')).toBe(true);
-    expect(vocab.sameColour('star', 'hearts')).toBe(false);
+    expect(vocab.sameColor('star', 'clubs')).toBe(true);
+    expect(vocab.sameColor('star', 'hearts')).toBe(false);
   });
 
   it('leaves the four standard suits exactly as they were', () => {
-    const vocab = defineSuits({ rose: { colour: 'red' } });
-    expect(SUITS.map((s) => vocab.colourOf(s))).toEqual(SUITS.map(colourOf));
+    const vocab = defineSuits({ rose: { color: 'red' } });
+    expect(SUITS.map((s) => vocab.colorOf(s))).toEqual(SUITS.map(colorOf));
     // And nothing global is mutated by anybody defining anything.
-    expect(colourOf('rose')).toBeUndefined();
+    expect(colorOf('rose')).toBeUndefined();
   });
 
   it('is the four and nothing else when a game adds none', () => {

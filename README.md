@@ -34,10 +34,10 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `phaser/` | `createBoard`, `boardRoot`, `orderStack`, `toBoard`, `CardSprite`, `preloadCardArt`, `throwCard` and `dealCards`, behind `phaser-card-engine/phaser` |
 | `hand.ts` | `Hand` and `defineHand`, `handPositions`, `nextHandPlace`, `handBounds` — cards held in a fan rather than stacked |
 | `stack.ts` | `Stack` and `defineStack`, `stackPositions`, `nextPosition`, `stackBounds`, `stackUnder`, `stackDepths`, `topCardIndex`, `readableOrder`, `cardRect`, `overlap` — where a pile of cards lives, where each card in it sits, and which of them is drawn in front |
-| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
+| `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colorOf`, `isRed`, `isBlack`, `sameColor`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColor`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
-| `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
-| `court.ts` | `COURT_PALETTES`, `recolourCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
+| `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colors and the guards that keep a bad value out of storage |
+| `court.ts` | `COURT_PALETTES`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
 | `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the seven card backs, and the suit glyphs |
 | `assets/fonts` | the four woff2 files and their licences |
@@ -60,7 +60,7 @@ Nertz's is this plus what it needs, over a suit set of its own:
 ```ts
 interface SolitaireCard extends Card {}                 // the four suits
 
-const NERTZ_SUITS = defineSuits({ star: { colour: 'black' } });   // gold on the card
+const NERTZ_SUITS = defineSuits({ star: { color: 'black' } });   // gold on the card
 type NertzSuit = SuitOf<typeof NERTZ_SUITS>;            // Suit | 'star'
 
 interface NertzCard extends Card<NertzSuit> {
@@ -76,18 +76,18 @@ There is no list of non-standard suits in this package. An earlier version had
 one — a `SPECIAL_SUITS` array with `star` in it — which made every consumer
 carry a suit only one of them has ever heard of, and made that consumer ask
 permission to add its own. Now the four standard suits are here and anything
-else is declared where it is used, **with the colour its rules should treat it
+else is declared where it is used, **with the color its rules should treat it
 as**:
 
 ```ts
-const SUITS_IN_PLAY = defineSuits({ star: { colour: 'black' }, rose: { colour: 'red' } });
+const SUITS_IN_PLAY = defineSuits({ star: { color: 'black' }, rose: { color: 'red' } });
 
-SUITS_IN_PLAY.colourOf('star');     // 'black'
+SUITS_IN_PLAY.colorOf('star');     // 'black'
 SUITS_IN_PLAY.isStandard('star');   // false — this is what "special" meant
 SUITS_IN_PLAY.all;                  // the four, then yours
 ```
 
-### Colour is a value, not a boolean
+### Color is a value, not a boolean
 
 `isRed` alone is a trap once suits are open-ended, because **"not red" stops
 meaning "black"**. A gold star is neither, and a package that answered `false`
@@ -96,20 +96,20 @@ everybody's cards. So:
 
 | | |
 | --- | --- |
-| `colourOf(suit)` | `'red'`, `'black'`, or **undefined** for a suit this package does not know |
+| `colorOf(suit)` | `'red'`, `'black'`, or **undefined** for a suit this package does not know |
 | `isRed` / `isBlack` | both, and both `false` for an unknown suit — which is why there are two rather than one and a negation |
-| `sameColour(a, b)` | `false` if either suit is unknown, because the honest answer about an unknown colour is not "yes" |
+| `sameColor(a, b)` | `false` if either suit is unknown, because the honest answer about an unknown color is not "yes" |
 
 A vocabulary always has an answer, because every suit in it was declared:
-`SUITS_IN_PLAY.colourOf('star')` is `'black'`, and `sameColour('star', 'clubs')`
+`SUITS_IN_PLAY.colorOf('star')` is `'black'`, and `sameColor('star', 'clubs')`
 is `true`.
 
-The distinction that makes this worth the trouble: **the colour a rule asks
-about is not always the colour the card is printed in.** Nertz's star is drawn
+The distinction that makes this worth the trouble: **the color a rule asks
+about is not always the color the card is printed in.** Nertz's star is drawn
 in gold and counts as black on its tableau, which builds in alternating
-colours. It declares `{ colour: 'black' }` and paints gold itself. A game
-wanting a suit that genuinely belongs to neither colour says
-`{ colour: 'gold' }` and gets `false` from both questions.
+colors. It declares `{ color: 'black' }` and paints gold itself. A game
+wanting a suit that genuinely belongs to neither color says
+`{ color: 'gold' }` and gets `false` from both questions.
 
 ### The helpers keep your type
 
@@ -230,9 +230,9 @@ its top-left corner to get back to it:
   dealer deals it, each seat holding its cards turned towards itself
 - **hands** at `/hands.html` — a fanned hand you can throw cards into, one
   face up in front of you and one turned round across the table
-- **courts** at `/courts.html` — the twelve court cards, recoloured live
-- **colours** at `/colours.html` — the deck colour, the ink and what a rule
-  counts a suit as, which are three different questions
+- **courts** at `/courts.html` — the twelve court cards, recolored live
+- **colors** at `/colors.html` — the deck color, the ink, what a rule counts
+  a suit as, and what a court does instead: four different questions
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -428,7 +428,7 @@ and the stack geometry never installs it.
 
 The twelve court cards are Dmitry Fomin's CC0 English pattern deck, and the
 seven themes are not seven sets of art — they are seven palettes over the same
-twelve drawings. Which means a court can be coloured while the game is
+twelve drawings. Which means a court can be colored while the game is
 running, rather than only while it is being built:
 
 ```ts
@@ -452,7 +452,7 @@ this.dealEverything();                 // pips now, portraits shortly
 Every demo but `/courts.html` does exactly that. Await it only if you need the
 first painted frame to already have portraits in it.
 
-**Three of the five inks move.** The source deck is drawn in five colours and
+**Three of the five inks move.** The source deck is drawn in five colors and
 nothing else. Gold and red are the garment fields; ink is every line on every
 face, hand and lock of hair — 12% of the art but the whole of its drawing, and
 moving it changes a deck's character more than either field does. Black and
@@ -480,7 +480,7 @@ set of drawings.
 
 That start-up column is the whole of what it cost, and it is paid once per
 palette — the textures stay in the manager, so going back to a deck already
-seen is free. The rasterising is the expensive part, not the recolouring: the
+seen is free. The rasterising is the expensive part, not the recoloring: the
 substitution is 12 ms for all twelve and the rest is Chrome drawing ~300 paths
 a card. One palette at two sizes therefore costs twice, and textures are keyed
 by palette *and* size so two decks can be on a table at once.
@@ -492,8 +492,8 @@ and obvious if you zoom, and it is not reproduced here.
 
 **The backs are still baked**, and stay that way: `back.webp` is generated line
 work with no SVG stage to render from, so there is nothing for a palette to
-recolour. What it has instead is transparency — it is ink on nothing, and the
-colour behind it is `BACK_COLORS`.
+recolor. What it has instead is transparency — it is ink on nothing, and the
+color behind it is `BACK_COLORS`.
 
 ## Throwing cards
 

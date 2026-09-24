@@ -193,9 +193,9 @@ class StackDemo extends Phaser.Scene {
   private printLabels(): void {
     for (const label of this.labels.splice(0)) label.destroy();
 
-    const say = (x: number, y: number, text: string, colour: string, size = '10px') => {
+    const say = (x: number, y: number, text: string, color: string, size = '10px') => {
       const item = this.add.text(x, y, text, {
-        fontFamily: DISPLAY_FONT, fontSize: size, color: colour,
+        fontFamily: DISPLAY_FONT, fontSize: size, color: color,
       }).setOrigin(0.5, 0.5).setDepth(0);
       this.root.add(item);
       this.labels.push(item);

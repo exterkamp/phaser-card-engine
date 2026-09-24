@@ -282,7 +282,7 @@ check(
 );
 
 // And the courts, which are the only art rendered rather than loaded: twelve
-// SVG sources recoloured and rasterised in the page. The failure mode worth
+// SVG sources recolored and rasterised in the page. The failure mode worth
 // catching is silent - a court whose portrait never arrived falls back to the
 // big centre pip and still looks like a perfectly good card.
 console.log('\nand the courts');
@@ -317,21 +317,21 @@ const invented = JSON.parse(await evaluate(portraits));
 check(invented.drawn === 12, `an invented palette renders all twelve too (${invented.drawn})`);
 check(invented.press === 0, 'and renders its own textures rather than reusing press');
 
-// And the colours page, whose claim is that a card's three colours are three
+// And the colors page, whose claim is that a card's three colors are three
 // different questions. Four cards agree; the star is the one that does not,
 // and if the three ever collapse into one the page stops meaning anything.
-console.log('\nand the colours');
-await send('Page.navigate', { url: `${root}/colours.html` });
-if (!await until('!!window.__colours', 30000)) {
-  console.log('  FAIL the colours page never loaded');
+console.log('\nand the colors');
+await send('Page.navigate', { url: `${root}/colors.html` });
+if (!await until('!!window.__colors', 30000)) {
+  console.log('  FAIL the colors page never loaded');
   done(1);
 }
 await sleep(500);
-const three = JSON.parse(await evaluate('JSON.stringify(window.__colours)'));
+const three = JSON.parse(await evaluate('JSON.stringify(window.__colors)'));
 check(three.printed.star === 0xd8a838,
   `the star is printed in gold, not red or black (#${three.printed.star.toString(16)})`);
 check(three.loose.star === null,
-  'colourOf refuses to guess at a suit it has never heard of');
+  'colorOf refuses to guess at a suit it has never heard of');
 check(three.declared.star === 'black',
   'and the game that declared it says black');
 check(three.loose.hearts === 'red' && three.declared.hearts === 'red'
@@ -341,10 +341,10 @@ check(three.loose.hearts === 'red' && three.declared.hearts === 'red'
 // Tapping a back has to actually choose it - the hit area on a Container is
 // measured from its display origin, and getting that wrong leaves a card that
 // looks fine and does nothing.
-const colours = 'Object.values(window.__game.scene.keys)[0]';
-const before = await evaluate(`${colours}.chosen`);
+const colors = 'Object.values(window.__game.scene.keys)[0]';
+const before = await evaluate(`${colors}.chosen`);
 const tap = JSON.parse(await evaluate(`(() => {
-  const s = ${colours}, b = s.backs[2], m = b.getWorldTransformMatrix();
+  const s = ${colors}, b = s.backs[2], m = b.getWorldTransformMatrix();
   const c = document.querySelector('canvas').getBoundingClientRect();
   return JSON.stringify({
     x: Math.round(c.left + m.tx * (c.width / window.__game.scale.width)),
@@ -356,9 +356,23 @@ await sleep(150);
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tap.x, y: tap.y, button: 'left', clickCount: 1, buttons: 1 });
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tap.x, y: tap.y, button: 'left', clickCount: 1 });
 await sleep(400);
-const after = await evaluate(`${colours}.chosen`);
+const after = await evaluate(`${colors}.chosen`);
 check(after !== before && after === 0x4f6b38,
   `tapping a back chooses that deck (#${Number(after).toString(16)})`);
+
+// The court row: three Kings of the same suit that have to be three
+// different paintings. If they collapsed to one texture the row would still
+// look like three cards and would be arguing nothing.
+const kings = JSON.parse(await evaluate(`(() => {
+  const s = ${colors};
+  const keys = s.courts.map(c => c.list
+    .filter(o => o.type === 'Image' && o.texture.key.startsWith('pce-court-svg'))
+    .map(o => o.texture.key)[0]);
+  return JSON.stringify({ shown: keys.filter(Boolean).length, distinct: new Set(keys).size });
+})()`));
+check(kings.shown === 3, `three courts on the colors page (${kings.shown})`);
+check(kings.distinct === 3,
+  `and three different paintings of the same King (${kings.distinct} textures)`);
 
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');

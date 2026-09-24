@@ -14,7 +14,7 @@ import {
   CARD_INDEX_FONT,
   TEXT_OVERSAMPLE,
   cardFaceMetrics,
-  colourOf,
+  colorOf,
   courtArtRect,
   deckThemePath,
   isCourtRank,
@@ -41,7 +41,7 @@ export const STANDARD_SUIT_ART: Readonly<Record<string, string>> = {
 
 const INK_RED = 0xcf2436;
 const INK_BLACK = 0x1a1a1a;
-// A suit this package cannot colour is drawn in neither - gold, the colour a
+// A suit this package cannot color is drawn in neither - gold, the color a
 // game generally reaches for when it has invented a suit of its own. Override
 // it with `ink` if that is wrong for yours.
 const INK_OTHER = 0xd8a838;
@@ -65,7 +65,7 @@ export interface CardArtOptions {
 /**
  * Loads the artwork a CardSprite needs. Call it from a scene's `preload`.
  *
- * The suits are SVG and are loaded large, because they are recoloured into
+ * The suits are SVG and are loaded large, because they are recolored into
  * their own textures and then drawn down to whatever size a card is - a pip
  * loaded at pip size is a pip that blurs the moment somebody asks for a big
  * card.
@@ -95,19 +95,19 @@ const backKey = (theme: DeckTheme) => `pce-back-${theme}`;
 
 /** The ink a suit is drawn in, unless the game says otherwise. */
 export function defaultInk(suit: string): number {
-  const colour = colourOf(suit);
-  if (colour === 'red') return INK_RED;
-  if (colour === 'black') return INK_BLACK;
+  const color = colorOf(suit);
+  if (color === 'red') return INK_RED;
+  if (color === 'black') return INK_BLACK;
   return INK_OTHER;
 }
 
 /**
- * A suit pip in the colour it is drawn in, baked into its own texture.
+ * A suit pip in the color it is drawn in, baked into its own texture.
  *
  * The SVGs are white on transparency so one file can serve red, black and
  * whatever a game's own suit needs. `setTint` did this until it turned out to
- * need WebGL - a canvas fallback drew every pip white - so the colour is
- * composited in here instead, once per suit and colour.
+ * need WebGL - a canvas fallback drew every pip white - so the color is
+ * composited in here instead, once per suit and color.
  */
 function inkedSuit(scene: Phaser.Scene, suit: string, ink: number): string {
   const key = `${suitKey(suit)}-${ink.toString(16)}`;
@@ -132,7 +132,7 @@ function inkedSuit(scene: Phaser.Scene, suit: string, ink: number): string {
   return key;
 }
 
-/** The card body and its shadow, baked once per size and colour. */
+/** The card body and its shadow, baked once per size and color. */
 function cardBody(
   scene: Phaser.Scene, metrics: CardFaceMetrics, faceUp: boolean, border: number, dpr: number,
 ): string {
@@ -158,7 +158,7 @@ function cardBody(
   // A hairline edge on a face-up card, because one white card fanned over
   // another leaves no seam otherwise and the pile reads as a single tall card
   // with a column of indexes printed down it. A face-down card gets its
-  // owner's colour in a heavier line, since a flat fill is all it shows.
+  // owner's color in a heavier line, since a flat fill is all it shows.
   g.lineStyle(faceUp ? 1 : 2, faceUp ? CARD_EDGE : border, 1);
   g.strokeRoundedRect(pad, pad, width, height, radius);
 
@@ -241,7 +241,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     // A court portrait, or one big suit. Both sit below the index, which is
     // added last so it draws over either.
     //
-    // A theme is a palette, so a card that says nothing about colour still
+    // A theme is a palette, so a card that says nothing about color still
     // knows which portrait it wants; `courtPalette` is for a deck that is not
     // one of the seven.
     const palette = style.courtPalette ?? COURT_PALETTES[theme];

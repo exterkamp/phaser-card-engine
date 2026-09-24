@@ -43,7 +43,7 @@ export function courtSourcePath(rank: CourtRank, suit: string): string {
 // --- the five inks ------------------------------------------------------
 
 /**
- * The source deck is drawn in five colours and nothing else.
+ * The source deck is drawn in five colors and nothing else.
  *
  * There are 24 distinct hex values across the twelve files; the other 19 are
  * Inkscape rounding strays a unit or two off one of these, which is why
@@ -63,7 +63,7 @@ export type CourtInkRole = keyof typeof COURT_SOURCE_INKS;
 /**
  * The three roles a theme may move.
  *
- * Gold and red are the garment fields and carry the deck's colour. Ink is
+ * Gold and red are the garment fields and carry the deck's color. Ink is
  * every line on every face, hand and lock of hair - 12% of the art but the
  * whole of its drawing - and moving it changes the deck's character more than
  * either field does.
@@ -83,13 +83,13 @@ export interface CourtPalette {
 export const COURT_PALETTES: Record<DeckTheme, CourtPalette> = {
   // The source as drawn - a websafe ramp, bright and a little electric.
   classic: { ink: '#5555aa', gold: '#ffff55', red: '#ff5555' },
-  // What four-colour offset on uncoated stock actually gets you. No screen
+  // What four-color offset on uncoated stock actually gets you. No screen
   // palette reaches #ff0000 and neither did any card press.
   press: { ink: '#4a4892', gold: '#e8b422', red: '#cf2436' },
   // Against the table: its label gold, a deeper brick, and line work in the
   // felt's own green rather than blue.
   felt: { ink: '#2e584c', gold: '#d8b471', red: '#962d30' },
-  // The shop's gold with the purple seat colour. The ink goes near-neutral
+  // The shop's gold with the purple seat color. The ink goes near-neutral
   // here on purpose - a purple line over a purple field is one shape.
   royal: { ink: '#3a344a', gold: '#ffd166', red: '#7a4fa3' },
   // Cool throughout, line work included.
@@ -112,7 +112,7 @@ const RGB = (hex: string): [number, number, number] => [
 const CORE = (Object.keys(COURT_SOURCE_INKS) as CourtInkRole[])
   .map((role) => ({ role, rgb: RGB(COURT_SOURCE_INKS[role]) }));
 
-/** Which of the five a colour out of the source art is, strays included. */
+/** Which of the five a color out of the source art is, strays included. */
 export function snapCourtInk(hex: string): CourtInkRole {
   const full = hex.length === 4
     ? `#${hex.slice(1).split('').map((c) => c + c).join('')}`
@@ -231,7 +231,7 @@ export function courtWipeRects(source: { width: number; height: number }): Rect[
 
 // --- preparing one file -------------------------------------------------
 
-// Only fills and strokes, so a colour mentioned in metadata or in an editor
+// Only fills and strokes, so a color mentioned in metadata or in an editor
 // attribute is left alone.
 const PAINT = /((?:fill|stroke)\s*[:=]\s*"?)(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)\b/g;
 
@@ -239,11 +239,11 @@ const PAINT = /((?:fill|stroke)\s*[:=]\s*"?)(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)
  * Swap the three movable roles, in the SVG rather than in the bitmap.
  *
  * Done before rasterising so the browser regenerates the blends: about 15% of
- * the art is antialiased pixels lying between two of the five colours, and
+ * the art is antialiased pixels lying between two of the five colors, and
  * remapping those by nearest-neighbour after the fact bands every edge in the
  * deck.
  */
-export function recolourCourt(svg: string, palette: CourtPalette): string {
+export function recolorCourt(svg: string, palette: CourtPalette): string {
   return svg.replace(PAINT, (whole, lead: string, hex: string) => {
     const role = snapCourtInk(hex);
     const want = role === 'ink' ? palette.ink
@@ -269,7 +269,7 @@ export function withCourtViewBox(svg: string): string {
   return svg.replace('<svg', `<svg viewBox="0 0 ${COURT_SOURCE.width} ${COURT_SOURCE.height}"`);
 }
 
-/** One source file, recoloured and made scalable. */
+/** One source file, recolored and made scalable. */
 export function prepareCourt(svg: string, palette: CourtPalette): string {
-  return recolourCourt(withCourtViewBox(svg), palette);
+  return recolorCourt(withCourtViewBox(svg), palette);
 }

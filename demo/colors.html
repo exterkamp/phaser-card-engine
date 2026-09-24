@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>phaser-card-engine — colours</title>
+    <title>phaser-card-engine — colors</title>
     <style>
       @font-face { font-family: 'Cinzel'; src: url('/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; font-display: block; }
       @font-face { font-family: 'Jost'; src: url('/fonts/jost-latin.woff2') format('woff2'); font-weight: 300 700; font-display: block; }
@@ -34,11 +34,12 @@
   </head>
   <body>
     <a class="home" href="/">&larr; Demos</a>
-    <h1>Colours</h1>
+    <h1>Colors</h1>
     <p>
-      A card has three colours and they are three different questions: whose
-      deck it is, what ink it is printed in, and what a <em>rule</em> thinks it
-      is. They come apart on exactly one card.
+      A card&rsquo;s colors are four different questions: whose deck it is,
+      what ink it is printed in, what a <em>rule</em> thinks it is &mdash; and,
+      on a court, none of those. The first three come apart on exactly one
+      card.
     </p>
     <div id="board"></div>
     <p id="note"></p>
@@ -48,9 +49,10 @@
     </div>
     <p style="font-size:0.7rem;opacity:0.7">
       The back is ink on transparency, so the fill behind it is the whole of
-      what a deck colour changes &mdash; turn the cards over and six decks are
-      one deck. The court palettes are a separate thing again; those are at
-      <a href="/courts.html">courts</a>.
+      what a deck color changes &mdash; turn the cards over and six decks are
+      one deck. A court is a painting rather than a pip, and takes its colors
+      from the deck&rsquo;s palette instead of the suit&rsquo;s ink; all seven
+      are at <a href="/courts.html">courts</a>.
     </p>
 
     <!-- A deuteranope's view, by the Vi&eacute;not matrix. The six fills were
@@ -72,6 +74,6 @@
         event.currentTarget.classList.toggle('on', on);
       });
     </script>
-    <script type="module" src="./colours.ts"></script>
+    <script type="module" src="./colors.ts"></script>
   </body>
 </html>

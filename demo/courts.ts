@@ -14,10 +14,10 @@ import {
   CardSprite, boardRoot, createBoard, preloadCardArt, renderCourts,
 } from 'phaser-card-engine/phaser';
 
-// The twelve courts, coloured while the game is running.
+// The twelve courts, colored while the game is running.
 //
 // Every card on this page is drawn from the same twelve SVG files; what
-// changes when you pick a colour is three hex values substituted into the
+// changes when you pick a color is three hex values substituted into the
 // source before it is rasterised.
 //
 // The seven presets used to be seven directories of WebP - 4.1MB of baked
@@ -108,7 +108,7 @@ class CourtTable extends Phaser.Scene {
         this.palette = { ...this.palette, [role]: input.value };
         this.showPalette();
       });
-      // On `change` rather than `input`: dragging round a colour wheel fires
+      // On `change` rather than `input`: dragging round a color wheel fires
       // a hundred of those, and each one is twelve cards to re-rasterise.
       input?.addEventListener('change', () => {
         this.palette = { ...this.palette, [role]: input.value };

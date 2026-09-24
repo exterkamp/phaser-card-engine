@@ -1,5 +1,5 @@
 // The decks a player can hold. Each is a whole palette - the courts' line
-// work and garment colours, and a card back with its own field, medallion and
+// work and garment colors, and a card back with its own field, medallion and
 // border.
 //
 // A theme is a palette and a back. The courts it names are rendered from the
@@ -66,9 +66,9 @@ export function deckThemePath(theme: DeckTheme, file: string): string {
 /**
  * What the back's ink is printed over.
  *
- * The back art is line work on transparency, so the colour under it is a
+ * The back art is line work on transparency, so the color under it is a
  * choice rather than part of the picture. In a four-player game that is how
- * you tell whose deck is whose; in a solitaire it is simply the colour of
+ * you tell whose deck is whose; in a solitaire it is simply the color of
  * your deck.
  *
  * Muted rather than primary, which is what stops four decks on one table
@@ -78,7 +78,7 @@ export function deckThemePath(theme: DeckTheme, file: string): string {
  * deuteranopia - and these are close to a dark felt's own value, so a
  * face-down card leans on its shadow for its edge.
  *
- * The first four are the seat colours a four-handed game deals out. The last
+ * The first four are the seat colors a four-handed game deals out. The last
  * two exist for a game where nobody else is at the table and the palette is
  * just a choice.
  */
@@ -107,7 +107,7 @@ export function asBackColor(value: unknown): number {
 
 /**
  * Six digits, always, because `'#2a5866'.slice(1)` has to round-trip through
- * asBackColor and a colour whose top byte is small would otherwise be written
+ * asBackColor and a color whose top byte is small would otherwise be written
  * short.
  */
 export function backColorHex(color: number): string {

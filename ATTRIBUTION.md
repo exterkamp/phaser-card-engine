@@ -11,11 +11,11 @@ domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) via
 Wikimedia Commons:
 <https://commons.wikimedia.org/wiki/File:English_pattern_king_of_spades.svg>
 and the eleven siblings named to match. They are the source of every court in
-the package, unmodified apart from the colour substitution described below.
+the package, unmodified apart from the color substitution described below.
 
 They used to ship a second time as `assets/cards/art/<theme>/*.webp`, baked by
 web-nert's `tools/render-face-art.py` — 84 files, one set per theme. Those are
-gone. Each of the seven themes was the same twelve figures recoloured, so a
+gone. Each of the seven themes was the same twelve figures recolored, so a
 deck is a palette rather than a second set of drawings, and the palettes are
 now the only thing kept.
 
@@ -26,7 +26,7 @@ than the licence strictly demands.
 
 `assets/cards/art/<theme>/back.webp` is generated line work - guilloche, the
 lathe-turned pattern on a banknote - drawn in ink on transparency so that the
-colour behind it is the deck colour setting. It is not opaque, and must not
+color behind it is the deck color setting. It is not opaque, and must not
 become opaque: the fill showing through is the whole of what that setting
 changes. See `BACK_COLORS` in `src/deck-theme.ts`.
 
@@ -34,7 +34,7 @@ changes. See `BACK_COLORS` in `src/deck-theme.ts`.
 
 `assets/cards/suits/*.svg` are drawn for this deck rather than taken from a
 typeface, and are white on transparency so one file can serve red, black and
-any other colour a card needs. In most typefaces the club and the spade are
+any other color a card needs. In most typefaces the club and the spade are
 near-identical blobs at card size; these are shaped to be told apart at a
 glance instead.
 

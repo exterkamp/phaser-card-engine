@@ -14,7 +14,7 @@ import {
   courtWipeRects,
   isCourtRank,
   prepareCourt,
-  recolourCourt,
+  recolorCourt,
   snapCourtInk,
   withCourtViewBox,
 } from './court.js';
@@ -23,7 +23,7 @@ const ART = join(import.meta.dirname, '..', 'assets', 'cards', 'court');
 const press = COURT_PALETTES.press;
 
 describe('the five inks', () => {
-  it('snaps each source colour to itself', () => {
+  it('snaps each source color to itself', () => {
     for (const [role, hex] of Object.entries(COURT_SOURCE_INKS)) {
       expect(snapCourtInk(hex)).toBe(role);
     }
@@ -44,31 +44,31 @@ describe('the five inks', () => {
   });
 });
 
-describe('recolouring', () => {
+describe('recoloring', () => {
   const svg = '<path fill="#5555aa" stroke="#ff5555"/><path style="fill:#ffff55"/>';
 
   it('moves the three roles a theme owns', () => {
-    const out = recolourCourt(svg, press);
+    const out = recolorCourt(svg, press);
     expect(out).toContain(press.ink);
     expect(out).toContain(press.red);
     expect(out).toContain(press.gold);
   });
 
   it('leaves black and paper where they are', () => {
-    const out = recolourCourt('<path fill="#000000"/><path fill="#ffffff"/>', press);
+    const out = recolorCourt('<path fill="#000000"/><path fill="#ffffff"/>', press);
     expect(out).toBe('<path fill="#000000"/><path fill="#ffffff"/>');
   });
 
-  // A colour named anywhere but a fill or a stroke is not part of the drawing.
+  // A color named anywhere but a fill or a stroke is not part of the drawing.
   it('touches nothing outside a fill or a stroke', () => {
     const meta = '<dc:title>#5555aa</dc:title><path fill="#5555aa"/>';
-    const out = recolourCourt(meta, press);
+    const out = recolorCourt(meta, press);
     expect(out).toContain('<dc:title>#5555aa</dc:title>');
     expect(out).toContain(`fill="${press.ink}"`);
   });
 
-  it('carries the strays across with the colour they belong to', () => {
-    expect(recolourCourt('<path fill="#5456aa"/>', press)).toBe(`<path fill="${press.ink}"/>`);
+  it('carries the strays across with the color they belong to', () => {
+    expect(recolorCourt('<path fill="#5456aa"/>', press)).toBe(`<path fill="${press.ink}"/>`);
   });
 });
 
@@ -170,10 +170,10 @@ describe('the source files on disk', () => {
   });
 
   // The claim the whole palette rests on. If a file ever arrives drawn in a
-  // sixth colour, recolouring it silently does the wrong thing to part of the
+  // sixth color, recoloring it silently does the wrong thing to part of the
   // drawing - so the assumption is checked against the art rather than
   // trusted.
-  it('is drawn in five colours and nothing else', () => {
+  it('is drawn in five colors and nothing else', () => {
     const roles = new Set<string>();
     const distinct = new Set<string>();
     for (const file of files) {
@@ -184,7 +184,7 @@ describe('the source files on disk', () => {
       }
     }
     expect([...roles].sort()).toEqual(['black', 'gold', 'ink', 'paper', 'red']);
-    // Five core plus the rounding strays, and nowhere near a sixth colour.
+    // Five core plus the rounding strays, and nowhere near a sixth color.
     expect(distinct.size).toBeLessThanOrEqual(32);
   });
 
@@ -194,7 +194,7 @@ describe('the source files on disk', () => {
     expect(withCourtViewBox(svg)).toContain('viewBox');
   });
 
-  it('comes out recoloured, scalable and still valid', () => {
+  it('comes out recolored, scalable and still valid', () => {
     const svg = readFileSync(join(ART, 'queen-hearts.svg'), 'utf8');
     const out = prepareCourt(svg, COURT_PALETTES.felt);
     expect(out).toContain('viewBox');

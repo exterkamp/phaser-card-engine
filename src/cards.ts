@@ -27,33 +27,33 @@ export const RANKS = [
 export type Rank = (typeof RANKS)[number];
 
 /**
- * What colour a suit counts as.
+ * What color a suit counts as.
  *
  * `'red'` and `'black'` are the two a standard deck has; the type stays open
- * because a game that adds a suit may want a colour to go with it, and a
+ * because a game that adds a suit may want a color to go with it, and a
  * fifth suit that is neither red nor black is a perfectly ordinary thing for
  * a game to want.
  *
- * This is the colour a *rule* asks about, which is not always the colour the
+ * This is the color a *rule* asks about, which is not always the color the
  * card is printed in. Nertz's star is drawn in gold and counts as black when
- * its tableau asks for alternating colours - two different questions, and
+ * its tableau asks for alternating colors - two different questions, and
  * only this one is about the rules.
  */
-export type SuitColour = 'red' | 'black' | (string & {});
+export type SuitColor = 'red' | 'black' | (string & {});
 
-export const SUIT_COLOURS: Readonly<Record<Suit, SuitColour>> = {
+export const SUIT_COLORS: Readonly<Record<Suit, SuitColor>> = {
   spades: 'black',
   hearts: 'red',
   diamonds: 'red',
   clubs: 'black',
 };
 
-/** The four, split by colour. A game with suits of its own wants defineSuits. */
+/** The four, split by color. A game with suits of its own wants defineSuits. */
 export const RED_SUITS: ReadonlySet<string> = new Set(['hearts', 'diamonds']);
 export const BLACK_SUITS: ReadonlySet<string> = new Set(['spades', 'clubs']);
 
 /**
- * The colour of one of the four, or nothing for a suit this package has never
+ * The color of one of the four, or nothing for a suit this package has never
  * heard of.
  *
  * Nothing rather than a guess, and that is the whole point of this function
@@ -62,13 +62,13 @@ export const BLACK_SUITS: ReadonlySet<string> = new Set(['spades', 'clubs']);
  * `false` to isRed and let the caller infer black would be putting a
  * game's rule - nertz's rule, as it happens - into everybody's cards.
  */
-export function colourOf(suit: string): SuitColour | undefined {
-  return isStandardSuit(suit) ? SUIT_COLOURS[suit] : undefined;
+export function colorOf(suit: string): SuitColor | undefined {
+  return isStandardSuit(suit) ? SUIT_COLORS[suit] : undefined;
 }
 
 /** Whether a suit is red. False for a suit this package does not know. */
 export function isRed(suit: string): boolean {
-  return colourOf(suit) === 'red';
+  return colorOf(suit) === 'red';
 }
 
 /**
@@ -76,22 +76,22 @@ export function isRed(suit: string): boolean {
  * which is why both of these exist rather than one and a negation.
  */
 export function isBlack(suit: string): boolean {
-  return colourOf(suit) === 'black';
+  return colorOf(suit) === 'black';
 }
 
 /**
- * Whether two suits are the same colour.
+ * Whether two suits are the same color.
  *
- * Most tableaus alternate colour rather than suit, so this - not the suit -
+ * Most tableaus alternate color rather than suit, so this - not the suit -
  * is what a placement rule actually asks about.
  *
  * False if either suit is one this package does not know, because the honest
- * answer about an unknown colour is not "yes". A game with suits of its own
- * asks its own vocabulary, where every suit's colour is declared.
+ * answer about an unknown color is not "yes". A game with suits of its own
+ * asks its own vocabulary, where every suit's color is declared.
  */
-export function sameColour(a: string, b: string): boolean {
-  const colour = colourOf(a);
-  return colour !== undefined && colour === colourOf(b);
+export function sameColor(a: string, b: string): boolean {
+  const color = colorOf(a);
+  return color !== undefined && color === colorOf(b);
 }
 
 /**
@@ -103,23 +103,23 @@ export function sameColour(a: string, b: string): boolean {
  * never heard of, and made that consumer's suit something it had to ask
  * permission to add.
  *
- * So the extra suits are declared where they are used, with the colour their
+ * So the extra suits are declared where they are used, with the color their
  * rules should treat them as, and what comes back is a small object that
  * knows about them:
  *
  * ```ts
  * // in the game, not here
- * export const SUITS_IN_PLAY = defineSuits({ star: { colour: 'black' } });
+ * export const SUITS_IN_PLAY = defineSuits({ star: { color: 'black' } });
  * export type CardSuit = SuitOf<typeof SUITS_IN_PLAY>;   // Suit | 'star'
  *
- * SUITS_IN_PLAY.colourOf('star');     // 'black' - what the tableau asks
+ * SUITS_IN_PLAY.colorOf('star');     // 'black' - what the tableau asks
  * SUITS_IN_PLAY.isStandard('star');   // false - this is what "special" meant
  * ```
  *
- * A colour is required rather than optional because the question this
+ * A color is required rather than optional because the question this
  * package cannot answer for you is exactly that one. Nertz's star is printed
  * in gold and plays as black; a game wanting a suit that is genuinely
- * neither says `{ colour: 'gold' }` and gets false from both isRed and
+ * neither says `{ color: 'gold' }` and gets false from both isRed and
  * isBlack, which is the answer that stops a red-and-black rule quietly
  * swallowing it.
  *
@@ -132,10 +132,10 @@ export interface SuitVocabulary<S extends string> {
   /** Every suit in play, the four standard ones first. */
   readonly all: readonly S[];
   /** Always an answer here, because every suit in play was declared. */
-  colourOf(suit: S): SuitColour;
+  colorOf(suit: S): SuitColor;
   isRed(suit: S): boolean;
   isBlack(suit: S): boolean;
-  sameColour(a: S, b: S): boolean;
+  sameColor(a: S, b: S): boolean;
   /** Whether this is one of the four a deck is built from. */
   isStandard(suit: S): suit is S & Suit;
 }
@@ -144,24 +144,24 @@ export interface SuitVocabulary<S extends string> {
 export type SuitOf<V> = V extends SuitVocabulary<infer S> ? S : never;
 
 export function defineSuits<E extends string = never>(
-  extra: Record<E, { colour: SuitColour }> = {} as Record<E, { colour: SuitColour }>,
+  extra: Record<E, { color: SuitColor }> = {} as Record<E, { color: SuitColor }>,
 ): SuitVocabulary<Suit | E> {
-  const added = Object.entries(extra) as [E, { colour: SuitColour }][];
-  const colours = new Map<string, SuitColour>([
-    ...Object.entries(SUIT_COLOURS),
-    ...added.map(([suit, how]) => [suit, how.colour] as const),
+  const added = Object.entries(extra) as [E, { color: SuitColor }][];
+  const colors = new Map<string, SuitColor>([
+    ...Object.entries(SUIT_COLORS),
+    ...added.map(([suit, how]) => [suit, how.color] as const),
   ]);
   const all = [...SUITS, ...added.map(([suit]) => suit)] as (Suit | E)[];
 
   // Declared, so there is always an answer - which is the difference between
   // asking a vocabulary and asking the free functions above.
-  const colourHere = (suit: Suit | E) => colours.get(suit) as SuitColour;
+  const colorHere = (suit: Suit | E) => colors.get(suit) as SuitColor;
   return {
     all,
-    colourOf: colourHere,
-    isRed: (suit) => colourHere(suit) === 'red',
-    isBlack: (suit) => colourHere(suit) === 'black',
-    sameColour: (a, b) => colourHere(a) === colourHere(b),
+    colorOf: colorHere,
+    isRed: (suit) => colorHere(suit) === 'red',
+    isBlack: (suit) => colorHere(suit) === 'black',
+    sameColor: (a, b) => colorHere(a) === colorHere(b),
     isStandard: (suit): suit is (Suit | E) & Suit => isStandardSuit(suit),
   };
 }

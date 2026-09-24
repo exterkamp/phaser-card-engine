@@ -31,8 +31,8 @@ describe('deck themes', () => {
   });
 });
 
-describe('back colours', () => {
-  it('gives the four seats four different colours', () => {
+describe('back colors', () => {
+  it('gives the four seats four different colors', () => {
     expect(SEAT_COLORS).toHaveLength(4);
     expect(new Set(SEAT_COLORS).size).toBe(4);
     expect(SEAT_COLORS.every((c) => (BACK_COLORS as readonly number[]).includes(c))).toBe(true);
@@ -43,7 +43,7 @@ describe('back colours', () => {
     expect(seatColor(99)).toBe(SEAT_COLORS[SEAT_COLORS.length - 1]);
   });
 
-  // The round trip that matters: a colour goes to storage as hex and has to
+  // The round trip that matters: a color goes to storage as hex and has to
   // come back as the same number.
   it('round-trips through hex and back', () => {
     for (const color of BACK_COLORS) {
@@ -53,7 +53,7 @@ describe('back colours', () => {
     }
   });
 
-  it('refuses a colour that is not one of the deck colours', () => {
+  it('refuses a color that is not one of the deck colors', () => {
     expect(asBackColor('ff00ff')).toBe(DEFAULT_BACK_COLOR);
     expect(asBackColor(undefined)).toBe(DEFAULT_BACK_COLOR);
   });
