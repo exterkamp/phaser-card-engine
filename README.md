@@ -430,6 +430,31 @@ own text and textures unless you override it.
 `phaser-card-engine/phaser`, so a game that only wants the cards, the shuffling
 and the stack geometry never installs it.
 
+### Drawing a card that is mid-flip
+
+`setFaceUp` turns a card over. `setDisplayFace` draws a side *without*
+touching the card:
+
+```ts
+sprite.setDisplayFace(true);        // show the face, mid-flip
+sprite.setDisplayFace(undefined);   // and let go: follow the card again
+```
+
+A card turning over in the air has to show whichever side points at the
+camera, and it has not been flipped while it is doing so — it still belongs to
+its pile the way it did, and the rules still see the side it really is.
+`shownFace` is what is being drawn; `card.faceUp` is what the card is.
+
+### A pip that is not on a card
+
+```ts
+scene.add.image(x, y, suitTexture(scene, 'spades', 0xffffff)).setAlpha(0.16);
+```
+
+The faint suit printed in an empty foundation, saying what belongs there. It
+is the felt's own marking rather than a card, so it is neither red nor black
+and takes whatever color you hand it.
+
 ### The stock, and what a suit is printed in
 
 ```ts

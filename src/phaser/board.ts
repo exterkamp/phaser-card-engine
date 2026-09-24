@@ -26,7 +26,13 @@ export interface BoardOptions {
   /** The board's size in logical units - the numbers your game thinks in. */
   width: number;
   height: number;
-  scene: Phaser.Types.Scenes.SceneType | Phaser.Types.Scenes.SceneType[];
+  /**
+   * The scene, or scenes. Optional: a game whose scene needs data to start -
+   * which deck, which deal, how many cards a draw turns - registers it with
+   * `game.scene.add(key, Scene, true, init)` afterwards instead, because a
+   * scene listed here is started by Phaser with nothing to go on.
+   */
+  scene?: Phaser.Types.Scenes.SceneType | Phaser.Types.Scenes.SceneType[];
   backgroundColor?: string;
   /** Defaults to the device's own ratio, which is what you want. */
   pixelRatio?: number;

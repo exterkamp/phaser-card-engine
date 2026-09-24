@@ -25,6 +25,7 @@ import {
 } from 'phaser-card-engine';
 import {
   CardSprite, boardRoot, createBoard, orderStack, preloadCardArt, renderCourt,
+  suitTexture,
 } from 'phaser-card-engine/phaser';
 
 // A deck editor.
@@ -513,6 +514,10 @@ const game = createBoard({
 // when the inks do, and that is the thing worth holding: an editor that let
 // you recolor a deck into changing its own rules would be a bug wearing a
 // feature's clothes.
+// The lone-pip helper, for the smoke checks - a game draws empty places with
+// it and this page has none.
+(window as unknown as { __pce_suitTexture: unknown }).__pce_suitTexture = suitTexture;
+
 (window as unknown as { __deck: unknown }).__deck = {
   rules: Object.fromEntries(SUITS.map((suit) => [suit, colorOf(suit)])),
 };

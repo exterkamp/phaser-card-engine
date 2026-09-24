@@ -522,6 +522,36 @@ check(dim.length >= 2, `at least two of them are dark decks (${dim.length})`);
 check(dim.every((d) => cssLuma(d.highlight) > 200),
   `and each keeps a light court highlight (${dim.map((d) => d.highlight).join(' ')})`);
 
+// A card can show a side it is not on. A card turning over in mid-air has to
+// draw whichever face points at the camera while still belonging to its pile
+// the way it did - so this has to move the drawing and leave `card.faceUp`
+// alone, and putting it back has to follow the card again.
+const flip = JSON.parse(await evaluate(`(() => {
+  const s = ${editor};
+  const card = s.cards.find(c => !c.card.faceUp);
+  const was = { faceUp: card.card.faceUp, shown: card.shownFace };
+  card.setDisplayFace(true);
+  const during = { faceUp: card.card.faceUp, shown: card.shownFace };
+  card.setDisplayFace(undefined);
+  const after = { faceUp: card.card.faceUp, shown: card.shownFace };
+  return JSON.stringify({ was, during, after });
+})()`));
+check(flip.was.shown === false && flip.during.shown === true,
+  'a card can be drawn face up while it is still face down');
+check(flip.during.faceUp === false,
+  'and showing the other side does not turn the card over');
+check(flip.after.shown === false,
+  'and letting go of it follows the card again');
+
+// The pip on its own, for the mark printed in an empty place.
+const ghost = await evaluate(`(() => {
+  const s = ${editor};
+  const key = window.__pce_suitTexture(s, 'spades', 0xffffff);
+  return s.textures.exists(key) ? key : 'missing';
+})()`);
+check(ghost.startsWith('pce-suit-') && ghost !== 'missing',
+  `a suit can be had as a pip on its own (${ghost})`);
+
 // Reset has to actually restore, or the editor is a one-way trip.
 await evaluate("document.getElementById('reset').click()");
 await sleep(1600);

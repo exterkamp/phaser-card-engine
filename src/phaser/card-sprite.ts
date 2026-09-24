@@ -103,6 +103,22 @@ function shade(color: number, factor: number): number {
 
 
 /**
+ * A suit pip in any color, as a texture key.
+ *
+ * For a pip that is not on a card: the faint one printed in an empty
+ * foundation to say what belongs there, which is the felt's own marking
+ * rather than a card and so is neither red nor black. Draw it with
+ * `scene.add.image(x, y, suitTexture(scene, suit, 0xffffff))` and set the
+ * alpha to taste.
+ *
+ * The art has to be loaded already - `preloadCardArt` does it - or this
+ * hands back a key with nothing behind it.
+ */
+export function suitTexture(scene: Phaser.Scene, suit: string, color: number): string {
+  return inkedSuit(scene, suit, color);
+}
+
+/**
  * A suit pip in the color it is drawn in, baked into its own texture.
  *
  * The SVGs are white on transparency so one file can serve red, black and
@@ -136,9 +152,11 @@ function inkedSuit(scene: Phaser.Scene, suit: string, ink: number): string {
 /** The card body and its shadow, baked once per size and color. */
 function cardBody(
   scene: Phaser.Scene, metrics: CardFaceMetrics, faceUp: boolean, border: number,
-  dpr: number, paper: number,
+  dpr: number, paper: number, edge: number,
 ): string {
-  const face = faceUp ? `up-${paper.toString(16)}` : `down-${border.toString(16)}`;
+  const face = faceUp
+    ? `up-${paper.toString(16)}-${edge.toString(16)}`
+    : `down-${border.toString(16)}`;
   const key = `pce-body-${Math.round(metrics.width)}-${face}-${dpr}`;
   if (scene.textures.exists(key)) return key;
 
@@ -162,7 +180,7 @@ function cardBody(
   // another leaves no seam otherwise and the pile reads as a single tall card
   // with a column of indexes printed down it. A face-down card gets its
   // owner's color in a heavier line, since a flat fill is all it shows.
-  g.lineStyle(faceUp ? 1 : 2, faceUp ? shade(paper, EDGE_OF_PAPER) : border, 1);
+  g.lineStyle(faceUp ? 1 : 2, faceUp ? edge : border, 1);
   g.strokeRoundedRect(pad, pad, width, height, radius);
 
   g.generateTexture(
@@ -186,6 +204,14 @@ export interface CardStyle {
    * follows too.
    */
   paper?: number;
+  /**
+   * The hairline drawn round a face-up card.
+   *
+   * Defaults to the paper darkened a little, which is what stops one white
+   * card fanned over another from reading as a single tall card. A game with
+   * its own idea of that edge says so here.
+   */
+  edge?: number;
   /**
    * The ink each suit is drawn in. Defaults to red, black, or gold.
    *
@@ -227,6 +253,8 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   private readonly backColor: number;
   private readonly pixelRatio: number;
   private readonly paper: number;
+  private readonly edge: number;
+  private displayFace: boolean | undefined;
 
   // Generic in the suit, because a game that declares one with `defineSuits`
   // has to be able to draw it. Nothing in here needs to know which suits
@@ -254,12 +282,16 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     const paper = style.paper ?? (palette.paper !== undefined
       ? cssColor(palette.paper) : CARD_FACE);
 
+    const edge = style.edge ?? shade(paper, EDGE_OF_PAPER);
+
     this.metrics = metrics;
     this.backColor = backColor;
     this.pixelRatio = dpr;
     this.paper = paper;
+    this.edge = edge;
 
-    this.plate = scene.add.image(0, 0, cardBody(scene, metrics, true, backColor, dpr, paper))
+    this.plate = scene.add.image(0, 0,
+      cardBody(scene, metrics, true, backColor, dpr, paper, edge))
       .setDisplaySize(metrics.width + 2 * metrics.pad, metrics.height + 2 * metrics.pad);
     this.add(this.plate);
 
@@ -340,7 +372,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       const art = this.portrait(scene, key);
       this.faceParts.unshift(art);
       this.addAt(art, this.getIndex(this.back) + 1);
-      art.setVisible(this.card.faceUp);
+      art.setVisible(this.shownFace);
     };
     scene.textures.on(Phaser.Textures.Events.ADD, onAdd);
     this.once(Phaser.GameObjects.Events.DESTROY, () => {
@@ -351,12 +383,37 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   /** Shows the face or the back. The card's own flag follows. */
   setFaceUp(faceUp: boolean): this {
     this.card.faceUp = faceUp;
+    return this.redraw();
+  }
+
+  /**
+   * Draw the side asked for without touching the card's own `faceUp`.
+   *
+   * A card turning over in mid-air has to show whichever side is pointing at
+   * the camera, and it has not been flipped while it is doing so - it still
+   * belongs to its pile the way it did, and the rules still see the side it
+   * really is. Pass `undefined` to go back to following the card.
+   */
+  setDisplayFace(faceUp: boolean | undefined): this {
+    if (this.displayFace === faceUp) return this;
+    this.displayFace = faceUp;
+    return this.redraw();
+  }
+
+  /** The side being shown, which is the card's own unless overridden. */
+  get shownFace(): boolean {
+    return this.displayFace ?? this.card.faceUp;
+  }
+
+  private redraw(): this {
+    const faceUp = this.shownFace;
     this.back.setVisible(!faceUp);
     for (const part of this.faceParts) {
       (part as Phaser.GameObjects.Image).setVisible(faceUp);
     }
     this.plate.setTexture(
-      cardBody(this.scene, this.metrics, faceUp, this.backColor, this.pixelRatio, this.paper),
+      cardBody(this.scene, this.metrics, faceUp, this.backColor, this.pixelRatio,
+        this.paper, this.edge),
     );
     return this;
   }
