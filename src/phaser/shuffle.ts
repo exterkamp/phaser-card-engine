@@ -1,4 +1,4 @@
-import type Phaser from 'phaser';
+import Phaser from 'phaser';
 import { Stack, riffleSplit, stackPositions } from '../index.js';
 import { orderStack } from './board.js';
 import { bendPlane, cardPlane, cardSnapshot } from './card-mesh.js';
@@ -97,6 +97,12 @@ export async function riffleShuffle(
   const turn = options.turn ?? 0.34;
   const random = options.random ?? Math.random;
   if (sprites.length < 2) return;
+
+  // A mesh is a WebGL object and draws nothing under Phaser's canvas
+  // fallback. Since the first thing this does is hide the sprites, going
+  // ahead there would empty the table for the length of the shuffle - so on
+  // canvas there is no shuffle, and the cards stay where they are.
+  if (scene.game.renderer.type !== Phaser.WEBGL) return;
 
   const home = stackPositions(stack, sprites.length);
   const scale = meshScale(scene, container);
