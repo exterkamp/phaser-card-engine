@@ -99,7 +99,7 @@ await sleep(700);
 // answer for where each one actually goes.
 const tiles = JSON.parse(await evaluate(
   `JSON.stringify([...document.querySelectorAll('a.demo')].map(a => a.href))`));
-check(tiles.length === 6, `the home screen lists six demos (${tiles.length})`);
+check(tiles.length === 7, `the home screen lists seven demos (${tiles.length})`);
 let reachable = 0;
 let wayBack = 0;
 for (const href of tiles) {
@@ -251,9 +251,14 @@ const riffle = JSON.parse(await evaluate(`(() => {
   const s = ${table};
   const before = s.deck.map(c => c.card.id).join();
   const was = s.deck.length;
+  // The meshes are what move. The sprites stay where they are, hidden, and
+  // come back at the end - so measuring them would measure nothing, which is
+  // what this check used to do.
   let widest = 0;
   const watch = setInterval(() => {
-    const xs = s.deck.map(c => c.x);
+    const planes = s.children.list.filter(o => o.type === 'Mesh' || o.type === 'Plane');
+    if (!planes.length) return;
+    const xs = planes.map(m => m.x);
     widest = Math.max(widest, Math.max(...xs) - Math.min(...xs));
   }, 25);
   return window.__riffle(s, { rounds: 1, duration: 260, stagger: 6 }).then(() => {
@@ -268,8 +273,8 @@ const riffle = JSON.parse(await evaluate(`(() => {
     });
   });
 })()`));
-check(riffle.widest > 80,
-  `the deck parts into two packets (${riffle.widest} units apart)`);
+check(riffle.widest > 120,
+  `the deck parts into two packets (${riffle.widest}px apart)`);
 check(riffle.squared === 0, `and squares up again (${riffle.squared} units of spread)`);
 // The one that matters. The shuffle already happened in the data; this is an
 // animation of it, and an animation that reordered the deck would leave the
@@ -279,6 +284,33 @@ check(riffle.kept === true, 'and leaves the deck in the order it was already in'
 // not care how many, and must not lose any.
 check(riffle.count === riffle.was,
   `with every card still in it (${riffle.count} of ${riffle.was})`);
+
+// And the cards bend while it happens. For the length of a shuffle each card
+// is a mesh rather than a sprite - a Container cannot be bowed - so the thing
+// to check is that the meshes turn up, part, and are gone again afterwards.
+console.log('\nand the riffle, close up');
+await send('Page.navigate', { url: `${root}/shuffle.html` });
+if (!await until('!!window.__game && Object.values(window.__game.scene.keys)[0]?.cards?.length', 30000)) {
+  console.log('  FAIL the riffle page never appeared');
+  done(1);
+}
+await sleep(1200);
+const bench = 'Object.values(window.__game.scene.keys)[0]';
+await evaluate(`${bench}.go(1, 2)`);
+if (!await until(`${bench}.busy === false`, 60000)) {
+  console.log('  FAIL the riffle never finished');
+  done(1);
+}
+const bent = JSON.parse(await evaluate(`JSON.stringify(${bench}.seen)`));
+check(bent.meshes === 52, `every card is bent, not just some (${bent.meshes})`);
+check(bent.spread > 120, `the two packets part (${bent.spread}px)`);
+check(bent.bow > 0.3, `and both of them bow (${bent.bow})`);
+// And put away again: a mesh left behind is a card drawn twice.
+const after = await evaluate(`${bench}.children.list
+  .filter(o => o.type === 'Mesh' || o.type === 'Plane').length`);
+check(after === 0, `with no mesh left on the table afterwards (${after})`);
+check(await evaluate(`${bench}.cards.every(c => c.visible)`) === true,
+  'and every card visible again');
 
 // And the hands, where a fan facing across the table straddles the wrap at
 // 180 degrees. Cards already in a hand must take the short way to their new

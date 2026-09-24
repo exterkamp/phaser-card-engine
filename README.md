@@ -642,7 +642,37 @@ strict alternation is a faro and looks like a zip.
 An animation that made up its own interleaving would land the deck somewhere
 other than where the game had put it, and the lie shows: the card on top would
 not be the card that gets dealt first. `/holdem.html` riffles twice before
-every deal.
+every deal, and `/shuffle.html` does one on its own, slowly.
+
+### The cards bend, which means they stop being sprites
+
+A `Container` is flat by construction: you can move it, turn it and scale it,
+and it is still a rectangle facing the camera. A riffle needs more than that —
+the halves bow under the thumbs — and a bend is not a transform.
+
+So for the length of a shuffle each card is swapped for a **mesh** carrying the
+same pixels, and that is what gets bowed, tipped and turned:
+
+```ts
+const key = cardSnapshot(scene, sprite, 'my-back');  // the pixels, once
+const mesh = cardPlane(scene, key);                  // a card-shaped grid
+bendPlane(mesh, { bow: 0.6, tilt: 0.6, turn: 0.3 }); // out of the plane
+```
+
+The bow is a parabola along the card's **length** — `4t(1-t)`, deepest in the
+middle and flat where it is gripped, which is how a card held at both short
+edges actually flexes. `tilt` matters more than it sounds: a board is seen
+from overhead, and a card bowed towards an overhead camera mostly just gets
+shorter, so tipping it is what turns the curve into something you can see.
+
+One snapshot serves the whole deck, because a pack being shuffled is face down
+and every card in it looks the same. The meshes are destroyed at the end and
+the sprites come back; nothing outside `phaser/shuffle.ts` ever sees one.
+
+Two things worth knowing if you touch this. Meshes draw in **renderer pixels**
+and take no notice of the container a card lives in, so everything in there
+works in renderer coordinates and converts on the way in. And a mesh is a
+**WebGL** object — under Phaser's canvas fallback it does not draw at all.
 
 ## Throwing cards
 

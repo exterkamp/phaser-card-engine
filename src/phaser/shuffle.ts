@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { Stack, riffleSplit, stackPositions } from '../index.js';
 import { orderStack } from './board.js';
+import { bendPlane, cardPlane, cardSnapshot } from './card-mesh.js';
 
 // Shuffling, as a thing you can watch.
 //
@@ -16,20 +17,43 @@ import { orderStack } from './board.js';
 // that shows: a shuffle that dealt the cards somewhere other than where they
 // ended up would leave the top card of the pile not being the card that gets
 // dealt first.
+//
+// The cards bend while it happens, and that needs them to stop being sprites
+// for a moment. A Container is flat by construction - it can be moved, turned
+// and scaled, and it is still a rectangle facing the camera - so for the
+// length of the shuffle each card is swapped for a mesh carrying the same
+// pixels, and the mesh is what gets bowed, tipped and turned. See
+// card-mesh.ts. They are swapped back at the end, and nothing outside this
+// file ever sees one.
 
 export interface RiffleOptions {
   /** How many times. Default one. */
   rounds?: number;
-  /** How far the two packets part, either side of the stack. Default 46. */
+  /** How far the two packets part, either side of the stack. Default 54. */
   spread?: number;
-  /** Milliseconds for the packets to part, and to come back. Default 170. */
+  /** Milliseconds for the cut, and for the bow. Default 170. */
   duration?: number;
-  /** Milliseconds between one card dropping and the next. Default 9. */
+  /** Milliseconds between one card springing free and the next. Default 9. */
   stagger?: number;
   /** How far a card lifts on its way over. Default 14. */
   lift?: number;
+  /** How deep the packets bow, as a fraction of a card. Default 0.62. */
+  bow?: number;
+  /** How far the cards are tipped away from the camera. Default 0.62 rad. */
+  tilt?: number;
+  /** How far each packet leans. Default 0.34 rad. */
+  turn?: number;
   /** Where the randomness comes from. Default Math.random. */
   random?: () => number;
+}
+
+/** A card, while it is being bent: the sprite it stands in for, and its mesh. */
+interface Bent {
+  sprite: Phaser.GameObjects.Container;
+  mesh: Phaser.GameObjects.Mesh;
+  bow: number;
+  turn: number;
+  tilt: number;
 }
 
 /**
@@ -37,8 +61,8 @@ export interface RiffleOptions {
  *
  * Cosmetic from end to end: the sprites are in the order the game put them
  * in, and they are in that same order when this resolves. What happens in
- * between is the two packets parting, the cards dropping back together in
- * runs, and the pile squaring.
+ * between is the pack cutting in two, both halves bowing under the thumbs,
+ * and the cards springing off one at a time into a single pile.
  *
  * The stagger is what carries it. Fifty-two cards at 9ms each is under half a
  * second for the drop, which is about as long as a riffle takes - and a card
@@ -53,41 +77,101 @@ export async function riffleShuffle(
   options: RiffleOptions = {},
 ): Promise<void> {
   const rounds = options.rounds ?? 1;
-  const spread = options.spread ?? 46;
+  const spread = options.spread ?? 54;
   const duration = options.duration ?? 170;
   const stagger = options.stagger ?? 9;
   const lift = options.lift ?? 14;
+  const bow = options.bow ?? 0.62;
+  const tilt = options.tilt ?? 0.62;
+  const turn = options.turn ?? 0.34;
   const random = options.random ?? Math.random;
   if (sprites.length < 2) return;
 
   const home = stackPositions(stack, sprites.length);
-  for (let round = 0; round < rounds; round++) {
-    const split = riffleSplit(sprites.length, random);
-    await part(scene, sprites, split, stack, spread, duration);
-    await drop(scene, container, sprites, split, home, duration, stagger, lift);
+  const scale = meshScale(scene, container);
+  const bent = lift$(scene, sprites, scale);
+  try {
+    for (let round = 0; round < rounds; round++) {
+      const split = riffleSplit(sprites.length, random);
+      await cut(scene, bent, split, stack, scale, { spread, duration, tilt, turn });
+      await bowPackets(scene, bent, duration, bow);
+      await spring(scene, bent, home, scale, { duration, stagger, lift });
+    }
+  } finally {
+    drop$(bent);
   }
   orderStack(container, sprites, stack);
 }
 
-/** The cut: two packets, one either side, each a shallow pile of its own. */
-function part(
+// --- the swap -------------------------------------------------------------
+
+/**
+ * How many renderer pixels to a board unit, and where the board's origin is.
+ *
+ * Meshes draw their texture at renderer pixels and take no notice of the
+ * container a card lives in, so everything here works in the renderer's own
+ * coordinates and converts on the way in.
+ */
+function meshScale(
+  scene: Phaser.Scene, container: Phaser.GameObjects.Container,
+): { k: number; x: number; y: number } {
+  const matrix = container.getWorldTransformMatrix();
+  return { k: matrix.scaleX || 1, x: matrix.tx, y: matrix.ty };
+}
+
+/** Each card, as a mesh, with the sprite hidden behind it. */
+function lift$(
   scene: Phaser.Scene,
   sprites: readonly Phaser.GameObjects.Container[],
+  scale: { k: number; x: number; y: number },
+): Bent[] {
+  return sprites.map((sprite, i) => {
+    // One snapshot between them. A pack being shuffled is face down, so every
+    // card in it looks the same and the texture is taken once.
+    const key = cardSnapshot(scene, sprite, `pce-riffle-${Math.round(sprite.width)}`, scale.k);
+    const mesh = cardPlane(scene, key);
+    mesh.setPosition(scale.x + sprite.x * scale.k, scale.y + sprite.y * scale.k);
+    mesh.setDepth(RIFFLE_DEPTH + i);
+    sprite.setVisible(false);
+    return { sprite, mesh, bow: 0, turn: 0, tilt: 0 };
+  });
+}
+
+/** Sprites back, meshes gone. */
+function drop$(bent: readonly Bent[]): void {
+  for (const card of bent) {
+    card.sprite.setVisible(true);
+    card.mesh.destroy();
+  }
+}
+
+// Above the felt and the cards, for as long as the shuffle lasts.
+const RIFFLE_DEPTH = 10_000;
+
+// --- the three movements --------------------------------------------------
+
+/** The cut: two packets, parted and leaning away from each other. */
+function cut(
+  scene: Phaser.Scene,
+  bent: readonly Bent[],
   split: { left: number[]; right: number[] },
   stack: Stack,
-  spread: number,
-  duration: number,
+  scale: { k: number; x: number; y: number },
+  how: { spread: number; duration: number; tilt: number; turn: number },
 ): Promise<void> {
   const moves: Promise<void>[] = [];
   const packet = (indices: number[], side: number) => {
     indices.forEach((at, depth) => {
-      moves.push(tween(scene, sprites[at], {
-        // A shallow lean rather than a squared block, so a packet reads as
-        // cards in a hand rather than as half a deck sliding sideways.
-        x: stack.x + side * spread,
-        y: stack.y + depth * 0.35,
-        angle: side * 4,
-        duration,
+      const card = bent[at];
+      moves.push(bendTo(scene, card, {
+        x: scale.x + (stack.x + side * how.spread) * scale.k,
+        // A shallow lean down the packet, so it reads as a stack of cards in
+        // a hand rather than as one card sliding sideways.
+        y: scale.y + (stack.y + depth * 0.5) * scale.k,
+        tilt: how.tilt,
+        turn: side * how.turn,
+        bow: 0,
+        duration: how.duration,
         ease: 'Cubic.easeOut',
       }));
     });
@@ -97,55 +181,101 @@ function part(
   return Promise.all(moves).then(() => undefined);
 }
 
-/** The drop: back together, in the order the split says they fell. */
-function drop(
-  scene: Phaser.Scene,
-  container: Phaser.GameObjects.Container,
-  sprites: readonly Phaser.GameObjects.Container[],
-  split: { from: ('left' | 'right')[] },
-  home: readonly { x: number; y: number }[],
-  duration: number,
-  stagger: number,
-  lift: number,
+/** The bow: both halves flexed under the thumbs, ready to go. */
+function bowPackets(
+  scene: Phaser.Scene, bent: readonly Bent[], duration: number, bow: number,
 ): Promise<void> {
-  const moves = sprites.map((sprite, at) => {
-    const place = home[at];
-    return tween(scene, sprite, {
-      x: place.x,
-      y: place.y,
-      angle: 0,
-      delay: at * stagger,
-      duration,
-      ease: 'Quad.easeIn',
-      onStart: () => {
-        // Up and over the pile it is joining. Without this a card slides
-        // under the one before it and the whole thing reads as a fan closing.
-        sprite.y -= lift;
-      },
-      // Each card lands on top of the one before it, which is what a pile
-      // being assembled looks like. The final order is set once at the end
-      // by orderStack - this is only what happens on the way.
-      onComplete: () => container.bringToTop(sprite),
-    });
-  });
-  return Promise.all(moves).then(() => undefined);
+  return Promise.all(bent.map((card) => bendTo(scene, card, {
+    bow,
+    duration: duration * 0.8,
+    ease: 'Quad.easeOut',
+  }))).then(() => undefined);
 }
 
-/** One tween, as a promise. */
-function tween(
+/** The release: cards spring flat as they fall, in the order they fell. */
+function spring(
   scene: Phaser.Scene,
-  target: Phaser.GameObjects.Container,
-  config: Record<string, unknown>,
+  bent: readonly Bent[],
+  home: readonly { x: number; y: number }[],
+  scale: { k: number; x: number; y: number },
+  how: { duration: number; stagger: number; lift: number },
 ): Promise<void> {
+  return Promise.all(bent.map((card, at) => bendTo(scene, card, {
+    x: scale.x + home[at].x * scale.k,
+    y: scale.y + (home[at].y - how.lift) * scale.k,
+    bow: 0,
+    turn: 0,
+    tilt: 0,
+    delay: at * how.stagger,
+    duration: how.duration,
+    ease: 'Quad.easeIn',
+    // The lift is taken back on arrival rather than tweened out, so the card
+    // drops the last few units instead of easing into the pile.
+    onComplete: () => {
+      card.mesh.y = scale.y + home[at].y * scale.k;
+      card.mesh.setDepth(RIFFLE_DEPTH + at);
+    },
+  }))).then(() => undefined);
+}
+
+// --- one tween, over a mesh -----------------------------------------------
+
+/**
+ * Tweens a card's shape and place together.
+ *
+ * The bend is not a property Phaser can tween - it is a pile of vertices - so
+ * the tween runs a number from 0 to 1 and the vertices are rebuilt from it on
+ * every frame. Which is the whole reason this file has its own tween helper
+ * rather than using flight.ts's.
+ */
+function bendTo(
+  scene: Phaser.Scene,
+  card: Bent,
+  to: {
+    x?: number; y?: number; bow?: number; turn?: number; tilt?: number;
+    duration: number; delay?: number; ease?: string; onComplete?: () => void;
+  },
+): Promise<void> {
+  const from = { bow: card.bow, turn: card.turn, tilt: card.tilt };
+  const want = {
+    bow: to.bow ?? card.bow,
+    turn: to.turn ?? card.turn,
+    tilt: to.tilt ?? card.tilt,
+  };
   return new Promise((resolve) => {
-    const done = config['onComplete'] as (() => void) | undefined;
-    scene.tweens.add({
-      ...config,
-      targets: target,
+    const config: Record<string, unknown> = {
+      targets: { t: 0 },
+      t: 1,
+      duration: to.duration,
+      delay: to.delay ?? 0,
+      ease: to.ease ?? 'Linear',
+      onUpdate: (_tween: unknown, target: { t: number }) => {
+        const t = target.t;
+        card.bow = from.bow + (want.bow - from.bow) * t;
+        card.turn = from.turn + (want.turn - from.turn) * t;
+        card.tilt = from.tilt + (want.tilt - from.tilt) * t;
+        bendPlane(card.mesh, { bow: card.bow, turn: card.turn, tilt: card.tilt });
+      },
       onComplete: () => {
-        done?.();
+        card.bow = want.bow;
+        card.turn = want.turn;
+        card.tilt = want.tilt;
+        bendPlane(card.mesh, want);
+        to.onComplete?.();
         resolve();
       },
-    } as Phaser.Types.Tweens.TweenBuilderConfig);
+    };
+    scene.tweens.add(config as Phaser.Types.Tweens.TweenBuilderConfig);
+    // The mesh's own position is a plain tween and can go in parallel.
+    if (to.x !== undefined || to.y !== undefined) {
+      scene.tweens.add({
+        targets: card.mesh,
+        ...(to.x !== undefined ? { x: to.x } : {}),
+        ...(to.y !== undefined ? { y: to.y } : {}),
+        duration: to.duration,
+        delay: to.delay ?? 0,
+        ease: to.ease ?? 'Linear',
+      } as Phaser.Types.Tweens.TweenBuilderConfig);
+    }
   });
 }

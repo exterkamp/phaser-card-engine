@@ -8,4 +8,5 @@ export * from './board.js';
 export * from './flight.js';
 export * from './card-sprite.js';
 export * from './court-art.js';
+export * from './card-mesh.js';
 export * from './shuffle.js';
