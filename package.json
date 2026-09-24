@@ -1,6 +1,6 @@
 {
   "name": "phaser-card-engine",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "The shared half of two card games: card art, suits, ranks, deck themes, shuffling and the typefaces.",
   "license": "CC0-1.0",
   "type": "module",
@@ -35,10 +35,11 @@
     "smoke": "node tools/smoke.mjs"
   },
   "devDependencies": {
-    "typescript": "~5.9.0",
-    "vitest": "^4.1.0",
+    "@types/node": "^26.6.2",
     "phaser": "^3.90.0",
-    "vite": "^7.0.0"
+    "typescript": "~5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.0"
   },
   "engines": {
     "node": ">=20"

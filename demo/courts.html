@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>phaser-card-engine — courts</title>
+    <style>
+      @font-face { font-family: 'Cinzel'; src: url('/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; font-display: block; }
+      @font-face { font-family: 'Jost'; src: url('/fonts/jost-latin.woff2') format('woff2'); font-weight: 300 700; font-display: block; }
+      @font-face { font-family: 'Archivo'; src: url('/fonts/archivo-latin.woff2') format('woff2'); font-weight: 500 700; font-display: block; }
+      html, body { margin: 0; height: 100%; background: #0b2119; color: #cfead0; font-family: 'Jost', system-ui, sans-serif; }
+      body { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.8rem; box-sizing: border-box; }
+      h1 { font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem; letter-spacing: 0.06em; margin: 0; color: #fdfdfd; text-transform: uppercase; }
+      p { margin: 0; font-size: 0.8rem; text-align: center; max-width: 32rem; color: #9fc4a4; }
+      a { color: #ffd166; font-size: 0.8rem; }
+      #board { width: min(480px, 100%); flex: 1; touch-action: none; }
+      label { font-size: 0.72rem; display: flex; align-items: center; gap: 0.3rem; color: #9fc4a4; }
+      input[type=color] { width: 2.2rem; height: 1.6rem; padding: 0; border: 1px solid #cfead0; border-radius: 3px; background: none; cursor: pointer; }
+      select { font-family: 'Jost', sans-serif; font-size: 0.72rem; padding: 0.3rem; border-radius: 4px; border: 1px solid #cfead0; background: #17594a; color: #fdfdfd; }
+      .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+      button {
+        font-family: 'Cinzel', Georgia, serif; font-size: 0.72rem; letter-spacing: 0.05em;
+        text-transform: uppercase; color: #fdfdfd; background: #17594a;
+        border: 1px solid #cfead0; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Courts</h1>
+    <p>
+      Twelve SVG sources, recoloured and rasterised <em>here</em> rather than
+      baked into WebP by a build script. The seven presets are not seven sets
+      of art &mdash; they are seven palettes over the same twelve drawings, and
+      so is anything you mix yourself.
+    </p>
+    <div id="board"></div>
+    <p id="note"></p>
+    <div class="row">
+      <select id="preset"><option value="">custom</option></select>
+      <label>ink <input type="color" id="ink" /></label>
+      <label>field <input type="color" id="gold" /></label>
+      <label>garment <input type="color" id="red" /></label>
+      <button id="random">Surprise me</button>
+    </div>
+    <p style="font-size:0.7rem;opacity:0.7">
+      Black and paper stay put: black is the mass the line work sits on, and
+      paper has to match the card underneath or the art reads as a sticker.
+    </p>
+    <div class="row">
+      <a href="/sizes.html">sizes &rarr;</a>
+      <a href="/holdem.html">hold'em &rarr;</a>
+      <a href="/">stacks &rarr;</a>
+    </div>
+    <script type="module" src="./courts.ts"></script>
+  </body>
+</html>

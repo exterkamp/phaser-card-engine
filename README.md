@@ -37,8 +37,9 @@ const art = deckThemePath('royal', 'king-spades.webp');   // /cards/art/royal/..
 | `cards.ts` | `Card` and `CardFace`, `buildDeck`, `topOf`, `cloneCards`, `defineSuits`, `colourOf`, `isRed`, `isBlack`, `sameColour`, `SUITS`, `RANKS`, `Suit`, `Rank`, `SuitColour`, `rankValue`, `isStandardSuit`, `cardName`, and the 5:7 card proportion |
 | `shuffle.ts` | `shuffle` against a supplied random, the `seeded` mulberry32 generator, and `pickWeighted` |
 | `deck-theme.ts` | the seven themes, their labels, the art path, the back/seat colours and the guards that keep a bad value out of storage |
+| `court.ts` | `COURT_PALETTES`, `recolourCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
-| `assets/cards` | 4.8MB of card art: seven themes × twelve courts and a back, plus the suit glyphs |
+| `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the seven baked themes (4.8MB), and the suit glyphs |
 | `assets/fonts` | the four woff2 files and their licences |
 
 ## The card, and extending it
@@ -218,7 +219,7 @@ npm install
 npm run demo        # http://localhost:4390, and the LAN address it prints
 ```
 
-Five pages:
+Six pages:
 
 - **stacks** at `/` — one of every fan direction, in both draw orders
 - **card sizes** at `/sizes.html` — the same card at seven widths from 24 to 168
@@ -228,6 +229,7 @@ Five pages:
   dealer deals it, each seat holding its cards turned towards itself
 - **hands** at `/hands.html` — a fanned hand you can throw cards into, one
   face up in front of you and one turned round across the table
+- **courts** at `/courts.html` — the twelve court cards, recoloured live
 
 It binds every interface, because a card game is tested with a thumb: `npm run
 demo` prints a **Network** address alongside the local one, and that is the one
@@ -419,6 +421,64 @@ own text and textures unless you override it.
 `phaser-card-engine/phaser`, so a game that only wants the cards, the shuffling
 and the stack geometry never installs it.
 
+## Courts: a deck is a palette
+
+The twelve court cards are Dmitry Fomin's CC0 English pattern deck, and the
+seven themes are not seven sets of art — they are seven palettes over the same
+twelve drawings. Which means a court can be coloured while the game is
+running, rather than only while it is being built:
+
+```ts
+import { COURT_PALETTES, renderCourts, CardSprite } from 'phaser-card-engine/phaser';
+
+const palette = { ink: '#4a4892', gold: '#e8b422', red: '#cf2436' };
+await renderCourts(this, palette);                    // rasterises all twelve
+new CardSprite(this, card, { width: 60, courtPalette: palette });
+```
+
+`renderCourts` is async and has to be awaited before any court sprite is
+built: a card made while its portrait is still rendering falls back to the big
+centre pip and does not go back and check. That fallback is deliberate — a
+court with no art is still a playable card — but it is not a thing to do on
+purpose.
+
+**Three of the five inks move.** The source deck is drawn in five colours and
+nothing else. Gold and red are the garment fields; ink is every line on every
+face, hand and lock of hair — 12% of the art but the whole of its drawing, and
+moving it changes a deck's character more than either field does. Black and
+paper stay put: black is the mass the line work sits on, and paper is 42% of
+the art and has to stay in step with the card fill drawn underneath it or the
+art reads as a sticker stuck on a white card.
+
+There are 24 distinct hex values across the twelve files rather than five,
+because Inkscape left rounding strays a unit or two off. Everything read out
+of the art is snapped to the nearest of the five, and `src/court.spec.ts`
+checks the assumption against the files rather than trusting it.
+
+### Rendered, or baked
+
+Both, and the baked decks are still the default. What each costs:
+
+| | rendered | baked |
+| --- | --- | --- |
+| Weight | 489 kB gzipped, all palettes | 707 kB per theme, 4.8 MB for seven |
+| Start-up | ~0.8 s for twelve, ~2.3 s throttled 4× | free |
+| Palettes | any | the seven somebody thought of |
+
+So the trade is start-up against reach. A game that ships one deck should keep
+the baked art; a game that wants a colour nobody baked — or that lets a player
+mix one — cannot have it at any price from a directory of WebP.
+
+The rasterising is the cost, not the recolouring: the substitution is 12 ms for
+all twelve and the rest is Chrome drawing ~300 paths a card. Rendering one
+palette at two sizes therefore costs twice, and textures are keyed by palette
+*and* size so two decks can be on a table at once.
+
+One thing the baked decks have that this does not: `render-face-art.py` adds a
+press — a sub-pixel blur and a third of a pixel of channel misregistration, so
+the ink reads as laid on stock rather than as clean vector. It is invisible at
+60×84 and obvious if you zoom, and it is not reproduced here.
+
 ## Throwing cards
 
 ```ts
@@ -512,7 +572,7 @@ diverge hardest.
 ## Consuming the assets
 
 The code assumes the art is served from `/cards`, which is what
-`deckThemePath` returns. In an Angular app, add the package's asset directory
+`deckThemePath` and `courtSourcePath` both return. In an Angular app, add the package's asset directory
 to `angular.json` rather than copying the files in:
 
 ```json
@@ -522,6 +582,10 @@ to `angular.json` rather than copying the files in:
   "output": "cards"
 }
 ```
+
+That one glob covers both `art/` (the baked themes) and `court/` (the SVG
+sources). A game that only uses baked decks can narrow it to `art/**` and drop
+2MB; a game that only renders can drop `art/**` and save rather more.
 
 The fonts are the same idea, with `output: "fonts"` — but the app still has to
 declare its own `@font-face` rules over them. This package names the families

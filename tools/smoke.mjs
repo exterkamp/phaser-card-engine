@@ -246,6 +246,42 @@ check(
   'ten cards reach the two hands',
 );
 
+// And the courts, which are the only art rendered rather than loaded: twelve
+// SVG sources recoloured and rasterised in the page. The failure mode worth
+// catching is silent - a court whose portrait never arrived falls back to the
+// big centre pip and still looks like a perfectly good card.
+console.log('\nand the courts');
+await send('Page.navigate', { url: `${host.replace(/\/$/, '')}/courts.html` });
+if (!await until(`document.getElementById('note')?.textContent?.includes('ms')`, 90000)) {
+  console.log('  FAIL the courts never rendered');
+  done(1);
+}
+await sleep(500);
+const courts = 'Object.values(window.__game.scene.keys)[0]';
+const portraits = `(() => {
+  const s = ${courts};
+  const keys = s.cards.flatMap(c => c.list.filter(o => o.type === 'Image').map(o => o.texture.key));
+  return JSON.stringify({
+    cards: s.cards.length,
+    drawn: keys.filter(k => k.startsWith('pce-court-svg')).length,
+    press: keys.filter(k => k.includes('4a4892')).length,
+    palette: s.palette,
+  });
+})()`;
+const pressed = JSON.parse(await evaluate(portraits));
+check(pressed.cards === 12, `all twelve courts on the board (${pressed.cards})`);
+check(pressed.drawn === 12,
+  `every court carries a portrait rather than the pip fallback (${pressed.drawn})`);
+
+// A palette nobody baked has to render its own textures rather than reuse the
+// press ones - the texture key carries the palette for exactly this reason.
+await evaluate(`document.getElementById('random').click()`);
+await until(`JSON.stringify(${courts}.palette) !== ${JSON.stringify(JSON.stringify(pressed.palette))}`, 30000);
+await sleep(3000);
+const invented = JSON.parse(await evaluate(portraits));
+check(invented.drawn === 12, `an invented palette renders all twelve too (${invented.drawn})`);
+check(invented.press === 0, 'and renders its own textures rather than reusing press');
+
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
 done(failures ? 1 : 0);

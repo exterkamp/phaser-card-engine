@@ -35,7 +35,7 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'demo-dist'),
     emptyOutDir: true,
-    // Two pages, so rollup needs both entry points named.
+    // Every page, by name: rollup needs each entry point listed.
     rollupOptions: {
       input: {
         stacks: resolve(__dirname, 'demo/index.html'),
@@ -43,6 +43,7 @@ export default defineConfig({
         throws: resolve(__dirname, 'demo/throws.html'),
         holdem: resolve(__dirname, 'demo/holdem.html'),
         hands: resolve(__dirname, 'demo/hands.html'),
+        courts: resolve(__dirname, 'demo/courts.html'),
       },
     },
   },

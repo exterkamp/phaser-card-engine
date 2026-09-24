@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { boardPixelRatio } from './board.js';
+import { courtTextureKey } from './court-art.js';
 import {
   BASE_CARD_WIDTH,
   Card,
   CardFaceMetrics,
+  CourtPalette,
   DeckTheme,
   DEFAULT_BACK_COLOR,
   DEFAULT_DECK_THEME,
@@ -186,6 +188,17 @@ export interface CardStyle {
   ink?: (suit: string) => number;
   suitArt?: Readonly<Record<string, string>>;
   /**
+   * Draw the courts from the SVG sources in this palette rather than from the
+   * theme's baked WebP.
+   *
+   * The portraits have to have been rendered already - see `renderCourts`,
+   * which is async because rasterising twelve of them is. A sprite built
+   * before its portrait exists falls back to the centre pip.
+   */
+  courtPalette?: CourtPalette;
+  /** The raster width the courts were rendered at. Defaults to 480. */
+  courtWidth?: number;
+  /**
    * How many texture pixels to a card unit.
    *
    * Defaults to whatever `createBoard` scaled this game by, which is the
@@ -230,7 +243,9 @@ export class CardSprite extends Phaser.GameObjects.Container {
 
     // A court portrait, or one big suit. Both sit below the index, which is
     // added last so it draws over either.
-    const court = courtKey(theme, card.rank, card.suit);
+    const court = style.courtPalette
+      ? courtTextureKey(style.courtPalette, card.rank, card.suit, style.courtWidth ?? 480)
+      : courtKey(theme, card.rank, card.suit);
     if (scene.textures.exists(court)) {
       const art = scene.textures.get(court).getSourceImage();
       const rect = courtArtRect(metrics, { width: art.width, height: art.height });

@@ -5,15 +5,19 @@ build with it carries them too, so here is what they are.
 
 ## The courts, and the backs
 
-`assets/cards/art/<theme>/{jack,queen,king}-{suit}.webp` are rendered from the
-**English pattern** court cards by **Dmitry Fomin** (Дмитрий Фомин), released
-into the public domain under
-[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) via Wikimedia
-Commons:
+`assets/cards/court/{jack,queen,king}-{suit}.svg` are the **English pattern**
+court cards by **Dmitry Fomin** (Дмитрий Фомин), released into the public
+domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) via
+Wikimedia Commons:
 <https://commons.wikimedia.org/wiki/File:English_pattern_king_of_spades.svg>
-and the eleven siblings named to match. Each of the seven themes is the same
-twelve figures recoloured, so a deck is a palette rather than a second set of
-drawings. They were baked to bitmaps by web-nert's `tools/render-face-art.py`.
+and the eleven siblings named to match. They are the source of every court in
+the package, unmodified apart from the colour substitution described below.
+
+`assets/cards/art/<theme>/{jack,queen,king}-{suit}.webp` are those same twelve,
+baked to bitmaps by web-nert's `tools/render-face-art.py`. Each of the seven
+themes is the same twelve figures recoloured, so a deck is a palette rather
+than a second set of drawings — which is why `renderCourts` can produce a
+palette that was never baked.
 
 CC0 is a public domain dedication: no attribution is required, no licence
 notice has to ship with a built game, and commercial use and modification are
