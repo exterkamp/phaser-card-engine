@@ -338,10 +338,10 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       : undefined;
     if (court !== undefined && scene.textures.exists(court)) {
       const art = this.portrait(scene, court);
+      this.keep(art);
       if (metrics.court.cut === 'full') {
         this.keep(this.courtFrame(scene, art, cssColor(palette.ink)));
       }
-      this.keep(art);
     } else {
       this.suits(scene, card, ink);
       // The portrait may simply not have finished rendering. A card built in
@@ -457,12 +457,18 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   private courtFrame(
     scene: Phaser.Scene, art: Phaser.GameObjects.Image, ink: number,
   ): Phaser.GameObjects.Rectangle {
+    // On the panel's edge, and drawn over the art rather than behind it -
+    // which is where a printed rule is, and the only way it is a rectangle
+    // rather than three sides of one. Behind the art, all that showed was
+    // whatever sliver of the stroke fell outside the picture, and at a
+    // hairline's width that is a sub-pixel that survives on some edges and
+    // rounds away on others: the bottom of every court was open.
+    //
     // `displayWidth`, not `width`. An Image's `width` is its texture's, which
     // for a court is several hundred pixels of raster - a frame drawn round
     // that is a rule down the middle of the felt.
     const line = Math.max(1, this.metrics.width / 90);
-    return scene.add.rectangle(art.x, art.y,
-      art.displayWidth + line, art.displayHeight + line)
+    return scene.add.rectangle(art.x, art.y, art.displayWidth, art.displayHeight)
       .setStrokeStyle(line, ink, 1)
       .setFillStyle();
   }
@@ -488,8 +494,8 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       art.setVisible(this.shownFace);
       if (this.metrics.court.cut === 'full') {
         const frame = this.courtFrame(scene, art, this.courtInk);
-        this.faceParts.unshift(frame);
-        this.addAt(frame, this.getIndex(art));
+        this.faceParts.splice(1, 0, frame);
+        this.addAt(frame, this.getIndex(art) + 1);
         frame.setVisible(this.shownFace);
       }
     };

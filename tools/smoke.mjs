@@ -948,6 +948,114 @@ check(corner.standard < 0.05 && corner.jumbo < 0.06,
   `the rank sits beside the panel rather than on it `
   + `(standard ${corner.standard}, jumbo ${corner.jumbo} of the card)`);
 
+// In pixels, because this is the one that slipped through by eye. Drawn
+// behind the art, the only part of the rule that showed was whatever sliver
+// fell outside the picture - a sub-pixel that survived on three edges and
+// rounded away on the fourth, so every court had an open bottom.
+//
+// The four corners, and not the middles of the edges: a court's own drawing
+// runs dark right up to the rule half way along a side, so a missing rule
+// there is invisible to anything counting dark pixels. At the corners the art
+// is white on all twelve, so ink there is the rule or it is nothing.
+const ruleAt = `(async () => {
+  const s = ${faces};
+  const card = s.cards.find(c => c.card.id === 'standard-K');
+  const frame = card.list.find(o => o.type === 'Rectangle');
+  const b = frame.getBounds();
+  const pad = 5;
+  const shot = await new Promise((r) => s.game.renderer.snapshotArea(
+    Math.round(b.x - pad), Math.round(b.y - pad),
+    Math.round(b.width + pad * 2), Math.round(b.height + pad * 2), r));
+  const c = document.createElement('canvas');
+  c.width = shot.width; c.height = shot.height;
+  const pen = c.getContext('2d');
+  pen.drawImage(shot, 0, 0);
+  const px = pen.getImageData(0, 0, c.width, c.height).data;
+  // Darker than the stock rather than a match for the ink: a hairline is
+  // half antialiasing, and a 50% blend of this rule on white paper is still
+  // nowhere near white.
+  const dark = (x, y) => {
+    const i = (y * c.width + x) * 4;
+    return 0.3 * px[i] + 0.6 * px[i + 1] + 0.1 * px[i + 2] < 215;
+  };
+  // A window over each corner of the boundary, reaching a couple of pixels
+  // either side of it.
+  const corners = [[pad, pad], [c.width - pad - 1, pad],
+    [pad, c.height - pad - 1], [c.width - pad - 1, c.height - pad - 1]];
+  return corners.filter(([cx, cy]) => {
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -2; dy <= 2; dy++) if (dark(cx + dx, cy + dy)) return true;
+    }
+    return false;
+  }).length;
+})`;
+const inked = await evaluate(`${ruleAt}()`);
+check(inked === 4, `the panel is a closed rectangle - ink at all four corners (${inked}/4)`);
+
+// That one says there is a rule; it does not say the rule is whole, because
+// burying it under the art still leaves ink at the corners - measured, not
+// assumed. What was actually wrong is the order, so the order is what is
+// checked, and checked both ways: a court built before its portrait exists
+// takes it later, and that second path had its own idea of where the rule
+// went.
+const stacked = JSON.parse(await evaluate(`(() => {
+  const s = ${faces};
+  const out = {};
+  for (const face of ['standard', 'jumbo']) {
+    const card = s.cards.find(c => c.card.id === face + '-K');
+    const art = card.list.find(o => o.type === 'Image' && o.texture.key.includes('court'));
+    const frame = card.list.find(o => o.type === 'Rectangle');
+    out[face] = card.getIndex(frame) - card.getIndex(art);
+  }
+  return JSON.stringify(out);
+})()`));
+check(stacked.standard > 0 && stacked.jumbo > 0,
+  `the rule is printed over the panel rather than under it `
+  + `(${stacked.standard}, ${stacked.jumbo} places above the art)`);
+
+// The other path. A game may create its deck and start rendering its courts
+// in the same breath - that is the whole point of the portraits being able to
+// arrive late - and a card built in the meantime shows a pip and swaps it for
+// the picture when it lands. The rule has to arrive with it, in the right
+// place, and that code is not the constructor's.
+const late = JSON.parse(await evaluate(`(async () => {
+  const s = ${faces};
+  const ph = window.__pce;
+  // A palette nothing has rendered, so the texture genuinely is not there
+  // yet and the card has to wait for it.
+  const palette = { ...ph.courtStart('press'), gold: '#e8b423' };
+  const card = new ph.CardSprite(s, { id: 'late-K', rank: 'K', suit: 'spades', faceUp: true },
+    { width: 100, face: 'standard', courtPalette: palette, courtWidth: 480 });
+  card.setPosition(-500, -500);
+  const before = {
+    art: card.list.some(o => o.type === 'Image' && o.texture.key.includes('court')),
+    frame: card.list.some(o => o.type === 'Rectangle'),
+  };
+  await ph.renderCourts(s, palette, { cut: 'full', width: 480, suits: ['spades'] });
+  await new Promise((r) => setTimeout(r, 400));
+  const art = card.list.find(o => o.type === 'Image' && o.texture.key.includes('court'));
+  const frame = card.list.find(o => o.type === 'Rectangle');
+  const out = {
+    before,
+    arrived: !!art,
+    above: art && frame ? card.getIndex(frame) - card.getIndex(art) : 0,
+    // And it has to be hidden with the rest of the face when the card turns.
+    hides: (() => {
+      card.setFaceUp(false);
+      const hidden = frame ? frame.visible : true;
+      card.setFaceUp(true);
+      return !hidden && (frame ? frame.visible : false);
+    })(),
+  };
+  card.destroy();
+  return JSON.stringify(out);
+})()`));
+check(late.before.art === false && late.before.frame === false,
+  'a court built before its portrait exists starts with neither picture nor rule');
+check(late.arrived === true && late.above > 0,
+  `and takes both when the portrait lands, the rule over the art (${late.above})`);
+check(late.hides === true, 'and the rule turns over with the card');
+
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
 done(failures ? 1 : 0);
