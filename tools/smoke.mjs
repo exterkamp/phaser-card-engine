@@ -403,8 +403,14 @@ const dark = JSON.parse(await evaluate(`(() => {
 })()`));
 check(dark.corner === '#0b0b0f' && dark.sky === '#0b0b0f',
   `a dark stock reaches the court's background (${dark.corner}, ${dark.sky})`);
-check(dark.pale > 0.04,
-  `and the figure keeps its face, hands and linen (${(dark.pale * 100).toFixed(1)}% pale)`);
+// Bracketed at both ends, because this has failed in both directions. Too
+// little pale is a King whose face went down with the card. Too much is a
+// background that never got repainted - the version that walked each column
+// down from the top left 23.5% pale, with a white box behind the Jack's hat
+// where it stopped at the first thing he draws.
+check(dark.pale > 0.08 && dark.pale < 0.21,
+  `and the figure keeps its face and linen while the ground goes dark `
+  + `(${(dark.pale * 100).toFixed(1)}% pale)`);
 
 // And none of it reached the rules.
 const rules = JSON.parse(await evaluate('JSON.stringify(window.__deck.rules)'));

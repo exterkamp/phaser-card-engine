@@ -498,22 +498,22 @@ rectangle, and what shows through the gaps in the figure is that rectangle. So
 one color for the card and for the figure's whites means a dark stock takes
 the King's face down with it and leaves line work floating on nothing.
 
-Nothing in the file tells the two apart, so `partBackground` separates them by
-**where they are**: the background is the sky above the figure. The art is
-rasterized with every white as the `highlight`, then each column is walked down
-from the top edge and repainted until it meets the first thing the figure
-draws.
+Nothing in the file tells the two apart, so `partBackground` does it on the
+canvas — and the two obvious rules both fail:
 
-A flood fill from the border was the obvious way and it was wrong.
-Connectivity does not hold in this artwork: a Queen's cloak is white and runs
-unbroken into the white margin beside her, so a flood that starts at the
-border arrives *inside* the figure and takes her shoulder — and then her face,
-by way of the white between the strands of her hair. Going down each column
-cannot reach anything the figure has drawn over.
+- **A flood from the border leaks.** A Queen's cloak is white and runs unbroken
+  into the white margin beside her, and the white between the strands of her
+  hair runs into her face. The flood arrives inside the figure and takes both.
+- **Walking each column down from the top barely fills.** It cannot leak, but a
+  Jack's hat touches the top of the frame, so every column through it stops at
+  once and the whole background behind his head stays pale.
 
-What that gives up is background enclosed by the figure: the gap between a
-crown and a raised sceptre keeps the highlight rather than the stock. A small
-pale notch, against a Queen with no face.
+What works is flooding **at a coarser grain than the leaks**. A cell of the
+grid counts as drawn if any pixel in it is, so the few-pixel gaps the flood
+escaped through are sealed while the background stays open. The result is then
+grown back a bounded handful of pixels at full resolution to take the rim the
+grid left — bounded, because a growth that cannot run more than `GROW` pixels
+cannot cross a figure to reach a face however the drawing is shaped.
 
 Edges are blended rather than switched, so the figure keeps its antialiasing
 instead of gaining a pale fringe against a dark stock.
