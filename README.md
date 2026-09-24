@@ -40,7 +40,7 @@ const art = deckThemePath('antique', 'back.webp');   // /cards/art/antique/back.
 | `deck-theme.ts` | the six decks — their labels, their stock and inks (`DECK_STOCK`), the art path, the back/seat colors and the guards that keep a bad value out of storage |
 | `ink.ts` | `defaultInk`, `themeInk`, `inkOf`, `SuitInk`, `colorCss`, `cssColor` — what a suit is *printed* in, which is not what it counts as |
 | `assets.ts` | `cardAssetBase`, `setCardAssetBase` — where the card art is served from, for a site that is not at the root of a host |
-| `court.ts` | `COURT_PALETTES`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects` — the twelve court sources, and the measured window taken out of each |
+| `court.ts` | `COURT_PALETTES`, `CourtCut`, `recolorCourt`, `prepareCourt`, `courtArtHeight`, `courtCropRect`, `courtWipeRects`, `courtSeeds` — the twelve court sources, and the measured window taken out of each: one figure or the double-ended card |
 | `tuck-box.ts` | `tuckBoxSize`, `boxQuads`, `flapQuads`, `deckRise`, `tuckBoxAtlas`, `quadVertices` — the shape of a box, and where its printing goes, as arithmetic |
 | `fonts.ts` | the four families named for a canvas, and `fontsReady()` |
 | `assets/cards` | the twelve court sources as SVG (2MB, 489kB gzipped), the six card backs, and the suit glyphs |
@@ -698,11 +698,11 @@ A card is laid out for the thing it is read on, so there are three of them:
 new CardSprite(this, card, { width: 60, face: 'standard' });
 ```
 
-| | index | corners | the middle |
-| --- | --- | --- | --- |
-| `mobile` (default) | large, suit beside it | one | one big suit |
-| `standard` | as printed, suit under it | two | a true count of pips |
-| `jumbo` | about 1.5x standard | two | the same count, squeezed |
+| | index | corners | the middle | the courts |
+| --- | --- | --- | --- | --- |
+| `mobile` (default) | large, suit beside it | one | one big suit | one figure, full bleed |
+| `standard` | as printed, suit under it | two | a true count of pips | both, in a ruled panel |
+| `jumbo` | about 1.5x standard | two | the same count, squeezed | both, a narrower panel |
 
 `mobile` is the card this package started with, and it is still the default.
 It gave up the second index to pay for everything else being bigger: once a
@@ -727,9 +727,35 @@ corner and the pips get smaller. That squeeze is the trade a jumbo deck exists
 to make. `/faces.html` puts the three side by side with a size slider; drag it
 down and watch which of them is still a card.
 
+The courts move with the face too, and that one is not a detail. A printed
+court is *double-ended*: one figure and the same figure upside down, meeting
+at a seam, which is what lets a court be picked up either way round and is
+most of why a court looks like a court. The source art has been double-ended
+all along - see `CourtCut` - and the half crop this package started with takes
+only the top of it, because the mobile face has one index and the whole bottom
+of the card to give one figure at twice the size. `standard` and `jumbo` take
+the whole thing and lay it in a ruled panel.
+
+The panel is 0.70 of the card's width, measured off a real card rather than
+chosen: on the one I had in front of me the panel runs from 0.147 to 0.845 of
+the width and the index column from 0.062 to 0.163, so the corner and the
+frame *just* touch. They are not meant to clear each other with room to spare,
+and a panel narrowed until they did came out visibly smaller than a printed
+one.
+
 `peek` moves with the face, and it is the number a fanned pile's step is
 chosen against - a narrow printed corner needs about half as much of a card
 showing as the mobile one does.
+
+One thing to remember when drawing a printed face: the cut is part of a court
+texture's key, so `renderCourts` has to be told which one. A board that
+rasterises half courts and then deals standard cards asks for a texture nobody
+made, and gets a pip.
+
+```ts
+await renderCourts(this, palette, { cut: 'full' });          // one face
+await renderCourts(this, palette, { cut: ['half', 'full'] }); // more than one
+```
 
 ## Boxes: a deck arrives in something
 

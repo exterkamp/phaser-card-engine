@@ -355,3 +355,99 @@ describe('the background every source opens with', () => {
     expect(out.split('#f0d9bd').length - 1).toBeGreaterThan(5);
   });
 });
+
+// A real card is double-ended: one figure and the same figure upside down,
+// meeting at the seam. The half crop is this package's own - one figure at
+// twice the size for a face that has one index and the whole bottom of the
+// card to give it - and everything below is about the other one.
+describe('how much of the source a card takes', () => {
+  const source = { width: 720, height: 1080 };
+
+  it('stops at the seam for one figure and at the far margin for both', () => {
+    const half = courtCropRect(source, 'half');
+    const full = courtCropRect(source, 'full');
+    expect(half.y).toBe(full.y);
+    expect(half.x).toBe(full.x);
+    expect(half.width).toBe(full.width);
+    expect(full.height).toBeGreaterThan(half.height * 1.9);
+  });
+
+  it('cuts the full window symmetrically about the seam', () => {
+    const full = courtCropRect(source, 'full');
+    const top = full.y;
+    const bottom = source.height - (full.y + full.height);
+    expect(bottom).toBeCloseTo(top, 0);
+  });
+
+  it('defaults to the half, so nothing that was drawing courts changes', () => {
+    expect(courtCropRect(source)).toEqual(courtCropRect(source, 'half'));
+    expect(courtWipeRects(source)).toEqual(courtWipeRects(source, 'half'));
+    expect(courtArtHeight(60)).toBe(courtArtHeight(60, 'half'));
+  });
+
+  // The source's second rule and second index are the first two turned half a
+  // turn, which is why neither needed measuring again.
+  it('paints out the far end\'s rule and index as well', () => {
+    const half = courtWipeRects(source, 'half');
+    const full = courtWipeRects(source, 'full');
+    expect(half).toHaveLength(2);
+    expect(full).toHaveLength(4);
+    // Within a pixel: x and width are rounded independently, so a mirrored
+    // rectangle can land a pixel off its twin. On a 720px page that is a
+    // rounding artefact and not a misplaced wipe.
+    full.slice(2).forEach((rect, i) => {
+      const twin = half[i];
+      expect(Math.abs(rect.width - twin.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(rect.height - twin.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(source.width - (rect.x + rect.width) - twin.x))
+        .toBeLessThanOrEqual(1);
+      expect(Math.abs(source.height - (rect.y + rect.height) - twin.y))
+        .toBeLessThanOrEqual(1);
+    });
+  });
+
+  it('is twice as tall for both figures as for one', () => {
+    expect(courtArtHeight(100, 'full')).toBeGreaterThan(courtArtHeight(100, 'half') * 1.9);
+  });
+
+  // The whole point of the full cut: it has to come out the shape of a
+  // printed court panel, or it cannot be laid into one.
+  it('comes out at the proportions of a real court panel', () => {
+    const aspect = 100 / courtArtHeight(100, 'full');
+    expect(aspect).toBeGreaterThan(0.56);
+    expect(aspect).toBeLessThan(0.64);
+  });
+});
+
+// Recorded against the half crop, which is the top half of the full one - and
+// a double-ended card has every walled-off patch twice, once each way up.
+// Seeding only the first leaves the second the wrong colour on a dark deck.
+describe('the background seeds on a double-ended card', () => {
+  it('halves the y and adds the twin half a turn away', () => {
+    const half = courtSeeds('K', 'hearts');
+    const full = courtSeeds('K', 'hearts', 'full');
+    expect(half).toHaveLength(1);
+    expect(full).toHaveLength(2);
+    expect(full[0].x).toBeCloseTo(half[0].x);
+    expect(full[0].y).toBeCloseTo(half[0].y / 2);
+    expect(full[1].x).toBeCloseTo(1 - half[0].x);
+    expect(full[1].y).toBeCloseTo(1 - half[0].y / 2);
+  });
+
+  it('still has nothing to say about the ten cards that need no seed', () => {
+    expect(courtSeeds('Q', 'spades', 'full')).toHaveLength(0);
+  });
+
+  it('keeps every seed inside the art it is a fraction of', () => {
+    for (const [name, seeds] of Object.entries(COURT_BACKGROUND_SEEDS)) {
+      const [rank, suit] = name.split('-');
+      void seeds;
+      for (const seed of courtSeeds(rank, suit, 'full')) {
+        expect(seed.x).toBeGreaterThan(0);
+        expect(seed.x).toBeLessThan(1);
+        expect(seed.y).toBeGreaterThan(0);
+        expect(seed.y).toBeLessThan(1);
+      }
+    }
+  });
+});

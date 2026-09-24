@@ -256,9 +256,25 @@ export const COURT_BACKGROUND_SEEDS: Readonly<Record<string, readonly CourtSeed[
 /** A place in the finished art, as fractions of its width and height. */
 export interface CourtSeed { x: number; y: number }
 
-/** The seeds for one card, in fractions of the finished art. */
-export function courtSeeds(rank: string, suit: string): readonly CourtSeed[] {
-  return COURT_BACKGROUND_SEEDS[`${rank}-${suit}`] ?? [];
+/**
+ * The seeds for one card, in fractions of the finished art.
+ *
+ * Recorded against the half crop, which is the top half of the full one - so
+ * on the full cut a seed's y is simply halved. And the source is double-ended,
+ * so every walled-off patch has a twin half a turn away from it: the sliver
+ * beside the king of hearts' sword is there twice on a printed card, once
+ * each way up, and seeding only the first leaves the second the wrong colour
+ * on any deck whose stock is not its highlight.
+ */
+export function courtSeeds(
+  rank: string, suit: string, cut: CourtCut = 'half',
+): readonly CourtSeed[] {
+  const seeds = COURT_BACKGROUND_SEEDS[`${rank}-${suit}`] ?? [];
+  if (cut === 'half') return seeds;
+  return seeds.flatMap(({ x, y }) => [
+    { x, y: y / 2 },
+    { x: 1 - x, y: 1 - y / 2 },
+  ]);
 }
 
 /**
@@ -269,9 +285,29 @@ export function courtSeeds(rank: string, suit: string): readonly CourtSeed[] {
  * that turns out to be; sizing it the other way round is what forced the
  * crop to cut crowns off in the first place.
  */
-export function courtArtHeight(width: number): number {
-  const { seam, top, left, right, width: sw, height: sh } = COURT_SOURCE;
-  return Math.round((width * ((seam - top) * sh)) / ((right - left) * sw));
+export function courtArtHeight(width: number, cut: CourtCut = 'half'): number {
+  const { top, left, right, width: sw, height: sh } = COURT_SOURCE;
+  return Math.round((width * ((courtBottom(cut) - top) * sh)) / ((right - left) * sw));
+}
+
+/**
+ * How much of the source a card takes: one figure, or both.
+ *
+ * `full` is what a real card is. The source is double-ended - one figure and
+ * the same figure upside down, meeting at the seam - and a printed court
+ * shows all of it, which is what lets the card be picked up either way round
+ * and is most of why a court looks like a court.
+ *
+ * `half` is this package's own, and it is not a shortcut. The mobile face has
+ * one index rather than two and gives the whole bottom of the card to the
+ * figure, so it wants one figure at twice the size. Handing that layout a
+ * double-ended court would put two small kings where one large one was.
+ */
+export type CourtCut = 'half' | 'full';
+
+/** Where the window stops: the seam for one figure, the far margin for both. */
+function courtBottom(cut: CourtCut): number {
+  return cut === 'full' ? 1 - COURT_SOURCE.top : COURT_SOURCE.seam;
 }
 
 /**
@@ -286,13 +322,15 @@ export function courtSourceSize(width: number): { width: number; height: number 
 }
 
 /** The window to lift out of a rendered source of this size. */
-export function courtCropRect(source: { width: number; height: number }): Rect {
-  const { left, right, top, seam } = COURT_SOURCE;
+export function courtCropRect(
+  source: { width: number; height: number }, cut: CourtCut = 'half',
+): Rect {
+  const { left, right, top } = COURT_SOURCE;
   return {
     x: Math.round(left * source.width),
     y: Math.round(top * source.height),
     width: Math.round((right - left) * source.width),
-    height: Math.round((seam - top) * source.height),
+    height: Math.round((courtBottom(cut) - top) * source.height),
   };
 }
 
@@ -303,16 +341,31 @@ export function courtCropRect(source: { width: number; height: number }): Rect {
  * Wiping the full width above the rule costs nothing - the source clips its
  * figure to that line, so there is only white margin up there.
  */
-export function courtWipeRects(source: { width: number; height: number }): Rect[] {
+export function courtWipeRects(
+  source: { width: number; height: number }, cut: CourtCut = 'half',
+): Rect[] {
   const { ruleWipe, indexBox } = COURT_SOURCE;
+  const box = (l: number, t: number, r: number, b: number): Rect => ({
+    x: Math.round(l * source.width),
+    y: Math.round(t * source.height),
+    width: Math.round((r - l) * source.width),
+    height: Math.round((b - t) * source.height),
+  });
+
+  const rects = [
+    box(0, 0, 1, ruleWipe),
+    box(indexBox.left, indexBox.top, indexBox.right, indexBox.bottom),
+  ];
+  if (cut === 'half') return rects;
+
+  // The far end of the card, which the half crop never reached. The source is
+  // double-ended, so its second rule and second index are the first two
+  // turned half a turn about the middle - which is exactly the reflection
+  // below, and the reason neither needed measuring again.
   return [
-    { x: 0, y: 0, width: source.width, height: Math.round(ruleWipe * source.height) },
-    {
-      x: Math.round(indexBox.left * source.width),
-      y: Math.round(indexBox.top * source.height),
-      width: Math.round((indexBox.right - indexBox.left) * source.width),
-      height: Math.round((indexBox.bottom - indexBox.top) * source.height),
-    },
+    ...rects,
+    box(0, 1 - ruleWipe, 1, 1),
+    box(1 - indexBox.right, 1 - indexBox.bottom, 1 - indexBox.left, 1 - indexBox.top),
   ];
 }
 

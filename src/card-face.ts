@@ -1,4 +1,5 @@
 import { CARD_ASPECT, CARD_WIDTH, Rank } from './cards.js';
+import type { CourtCut } from './court.js';
 
 // What a card face looks like, as numbers.
 //
@@ -75,6 +76,20 @@ export interface CardFaceMetrics {
   /** The one big suit a number card carries, centred on this point. */
   pip: { y: number; size: number };
   /**
+   * How a court is printed on this face.
+   *
+   * `cut` is how much of the source art the card takes - see `CourtCut`. A
+   * real card is `full`: the double-ended figure, which is what lets a court
+   * be picked up either way round. The mobile face takes `half` and gives it
+   * the whole bottom of the card instead, because it has one index rather
+   * than two and one large figure beats two small ones.
+   *
+   * `panel` is how wide the framed portrait is, as a fraction of the card,
+   * on the faces that frame one. It has to clear the corners: a court's rank
+   * is one character, so the panel starts just inside where a J, Q or K ends.
+   */
+  court: { cut: CourtCut; panel: number };
+  /**
    * The box the pips are counted out in, on the faces that count them.
    *
    * Undefined on the mobile face, which draws one big suit instead - five
@@ -134,6 +149,7 @@ interface FaceRatios {
   pipCentreY: number;
   /** The counted field, on the faces that have one. */
   pips?: { size: number; aceSize: number; inset: number; top: number };
+  court: { cut: CourtCut; panel: number };
 }
 
 const FACES: Record<FaceStyle, FaceRatios> = {
@@ -149,6 +165,10 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     inkBottomMargin: 4 / 60,
     pipSize: 48 / 60,
     pipCentreY: 12.5 / 60,
+    // One figure, full bleed across the bottom of the card. The face has a
+    // single index and nothing else to fit, so the figure gets everything
+    // below it at twice the size a double-ended one would be.
+    court: { cut: 'half', panel: 1 },
   },
   // The card as it is printed. A real index is about 7mm on a 63mm card, and
   // the font box is half again as tall as the ink in it, so 15/60 of the
@@ -179,6 +199,16 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     // top row of a ten sits in the index; too much and the outer columns
     // meet the middle one.
     pips: { size: 9 / 60, aceSize: 22 / 60, inset: 19.5 / 60, top: 13 / 60 },
+    // The card as it is printed: both figures, in a ruled panel with the
+    // corners beside it.
+    //
+    // 0.70 is measured off a real card rather than chosen. On the one I was
+    // handed the panel runs from 0.147 to 0.845 of the width, and the index
+    // column from 0.062 to 0.163 - so the corner and the frame *just* touch,
+    // by about 0.016 of the width. They are not meant to clear each other
+    // with room to spare, and a panel narrowed until they did came out
+    // visibly smaller than a printed one.
+    court: { cut: 'full', panel: 0.70 },
   },
   // The deck sold to people who cannot read a standard one across a table:
   // the same card with the corners at about twice the size. The pip field
@@ -205,6 +235,9 @@ const FACES: Record<FaceStyle, FaceRatios> = {
     // cramped next to a standard card's. `top` is set by where the suit under
     // the rank ends, plus a pip's own half-height.
     pips: { size: 8.5 / 60, aceSize: 20 / 60, inset: 19.5 / 60, top: 26 / 60 },
+    // A wider corner does need a narrower panel, and this is the amount that
+    // puts jumbo's overlap back where the printed card's is.
+    court: { cut: 'full', panel: 0.66 },
   },
 };
 
@@ -242,6 +275,7 @@ export function cardFaceMetrics(
       top: -height / 2 + at(ratios.pips.top),
       bottom: height / 2 - at(ratios.pips.top),
     },
+    court: ratios.court,
     // On a two-cornered card the peek has to clear the suit under the rank as
     // well as the rank, which is what the bottom margin is carrying here.
     peek: inkTop + 2 * inkHalf + at(ratios.inkBottomMargin),
@@ -314,6 +348,14 @@ export function pipPlaces(
 export function courtArtRect(
   metrics: CardFaceMetrics, art: { width: number; height: number },
 ): { x: number; y: number; width: number; height: number } {
+  if (metrics.court.cut === 'full') {
+    // A framed panel in the middle of the card, the way a printed court is:
+    // narrow enough that the two corners sit beside it rather than on it, and
+    // as tall as that width makes it. The source's own proportions come out
+    // at very nearly a real court panel's, so nothing has to be squeezed.
+    const width = metrics.width * metrics.court.panel;
+    return { x: 0, y: 0, width, height: (width * art.height) / art.width };
+  }
   const height = (metrics.width * art.height) / art.width;
   return { x: 0, y: metrics.height / 2 - height / 2, width: metrics.width, height };
 }

@@ -53,9 +53,17 @@ class Faces extends Phaser.Scene {
     });
   }
 
-  /** Re-renders the courts for the chosen deck, then re-lays. */
+  /**
+   * Re-renders the courts for the chosen deck, then re-lays.
+   *
+   * Both cuts, because this page draws all three faces at once and the cut is
+   * part of a court texture's key: the mobile column wants one figure and the
+   * other two want the double-ended card. A game drawing a single face asks
+   * for a single cut.
+   */
   private paint(): void {
-    void renderCourts(this, courtStart(this.theme)).then(() => this.lay());
+    void renderCourts(this, courtStart(this.theme), { cut: ['half', 'full'] })
+      .then(() => this.lay());
     this.lay();
   }
 
@@ -134,3 +142,11 @@ const game = createBoard({
 });
 
 (window as unknown as { __game: Phaser.Game }).__game = game;
+
+// The pieces a smoke check needs to lay out cards this page does not itself
+// show - every court on a dark deck, say. The same handle the hold'em demo
+// exposes, and for the same reason: a check that can only press the buttons
+// can only see what the buttons do.
+(window as unknown as { __pce: unknown }).__pce = {
+  CardSprite, boardRoot, renderCourts, courtStart, COURT_PALETTES, DECK_STOCK,
+};

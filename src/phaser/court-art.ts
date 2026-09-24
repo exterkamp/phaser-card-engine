@@ -5,6 +5,7 @@ import {
   courtPaper,
   CourtRank,
   COURT_RANKS,
+  CourtCut,
   courtArtHeight,
   courtCropRect,
   courtSourcePath,
@@ -56,11 +57,12 @@ function sourceSvg(rank: CourtRank, suit: string): Promise<string> {
  */
 export function courtTextureKey(
   palette: CourtPalette, rank: string, suit: string, width: number,
+  cut: CourtCut = 'half',
 ): string {
   const ink = `${palette.ink}${palette.gold}${palette.red}`
     + `${courtPaper(palette)}${courtHighlight(palette)}`;
   const key = ink.replace(/#/g, '');
-  return `pce-court-svg-${key}-${Math.round(width)}-${rank}-${suit}`;
+  return `pce-court-svg-${key}-${Math.round(width)}-${cut}-${rank}-${suit}`;
 }
 
 /**
@@ -70,9 +72,9 @@ export function courtTextureKey(
  */
 export async function renderCourt(
   scene: Phaser.Scene, rank: CourtRank, suit: string,
-  palette: CourtPalette, width: number,
+  palette: CourtPalette, width: number, cut: CourtCut = 'half',
 ): Promise<string> {
-  const key = courtTextureKey(palette, rank, suit, width);
+  const key = courtTextureKey(palette, rank, suit, width, cut);
   if (scene.textures.exists(key)) return key;
 
   const svg = prepareCourt(await sourceSvg(rank, suit), palette);
@@ -100,17 +102,18 @@ export async function renderCourt(
     const highlight = courtHighlight(palette);
     const paper = courtPaper(palette);
     pen.fillStyle = highlight;
-    for (const wipe of courtWipeRects(source)) {
+    for (const wipe of courtWipeRects(source, cut)) {
       pen.fillRect(wipe.x, wipe.y, wipe.width, wipe.height);
     }
 
-    const crop = courtCropRect(source);
+    const crop = courtCropRect(source, cut);
     const out = document.createElement('canvas');
     out.width = Math.round(width);
-    out.height = courtArtHeight(width);
-    const cut = out.getContext('2d');
-    if (!cut) throw new Error('court art: no 2d context');
-    cut.drawImage(page, crop.x, crop.y, crop.width, crop.height, 0, 0, out.width, out.height);
+    out.height = courtArtHeight(width, cut);
+    const cropPen = out.getContext('2d');
+    if (!cropPen) throw new Error('court art: no 2d context');
+    cropPen.drawImage(page, crop.x, crop.y, crop.width, crop.height,
+      0, 0, out.width, out.height);
 
     // And the background goes back to the stock, where they differ. A deck
     // that has not asked for the two to differ pays nothing for this.
@@ -120,8 +123,8 @@ export async function renderCourt(
     // headdress is closed at the page but open at the edge of the cut - so
     // running this on the finished art is what lets the edges reach it.
     if (paper.toLowerCase() !== highlight.toLowerCase()) {
-      partBackground(cut, out.width, out.height, highlight, paper,
-        courtSeeds(rank, suit));
+      partBackground(cropPen, out.width, out.height, highlight, paper,
+        courtSeeds(rank, suit, cut));
     }
 
     // addCanvas rather than addImage: the canvas is the texture's own source,
@@ -295,6 +298,15 @@ export interface RenderCourtsOptions {
   suits?: readonly string[];
   /** The raster width, in texture pixels. */
   width?: number;
+  /**
+   * One figure or both - see `CourtCut`.
+   *
+   * It has to match the face the cards are drawn in, because the cut is part
+   * of the texture's key: a board that renders half courts and then deals
+   * standard cards asks for a texture nobody made and gets a pip. A game
+   * drawing more than one face renders both, which is what `faces.html` does.
+   */
+  cut?: CourtCut | readonly CourtCut[];
 }
 
 const DEFAULT_SUITS = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
@@ -328,7 +340,9 @@ export async function renderCourts(
 ): Promise<void> {
   const suits = options.suits ?? DEFAULT_SUITS;
   const width = options.width ?? 480;
-  const wanted = COURT_RANKS.flatMap((rank) => suits.map((suit) => ({ rank, suit })));
-  await Promise.all(wanted.map(({ rank, suit }) =>
-    renderCourt(scene, rank, suit, palette, width)));
+  const cuts = typeof options.cut === 'string' ? [options.cut] : options.cut ?? ['half'];
+  const wanted = cuts.flatMap((cut) =>
+    COURT_RANKS.flatMap((rank) => suits.map((suit) => ({ rank, suit, cut }))));
+  await Promise.all(wanted.map(({ rank, suit, cut }) =>
+    renderCourt(scene, rank, suit, palette, width, cut)));
 }

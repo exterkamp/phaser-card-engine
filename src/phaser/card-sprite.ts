@@ -278,6 +278,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   private readonly pixelRatio: number;
   private readonly paper: number;
   private readonly edge: number;
+  private readonly courtInk: number;
   private displayFace: boolean | undefined;
 
   // Generic in the suit, because a game that declares one with `defineSuits`
@@ -316,6 +317,7 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     this.pixelRatio = dpr;
     this.paper = paper;
     this.edge = edge;
+    this.courtInk = cssColor(palette.ink);
 
     this.plate = scene.add.image(0, 0,
       cardBody(scene, metrics, true, backColor, dpr, paper, edge))
@@ -331,10 +333,15 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
     // A court portrait, or the suits. Both sit below the index, which is
     // added last so it draws over either.
     const court = isCourtRank(card.rank)
-      ? courtTextureKey(palette, card.rank, card.suit, style.courtWidth ?? 480)
+      ? courtTextureKey(palette, card.rank, card.suit, style.courtWidth ?? 480,
+        metrics.court.cut)
       : undefined;
     if (court !== undefined && scene.textures.exists(court)) {
-      this.keep(this.portrait(scene, court));
+      const art = this.portrait(scene, court);
+      if (metrics.court.cut === 'full') {
+        this.keep(this.courtFrame(scene, art, cssColor(palette.ink)));
+      }
+      this.keep(art);
     } else {
       this.suits(scene, card, ink);
       // The portrait may simply not have finished rendering. A card built in
@@ -440,6 +447,27 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
   }
 
   /**
+   * The hairline round a framed court.
+   *
+   * Only on the faces that frame one. A printed court sits in a ruled panel
+   * with white card around it, and without the rule the figure floats - which
+   * is the difference between a card and a picture of a figure. The full-bleed
+   * court on the mobile face runs to the card's own edges and needs nothing.
+   */
+  private courtFrame(
+    scene: Phaser.Scene, art: Phaser.GameObjects.Image, ink: number,
+  ): Phaser.GameObjects.Rectangle {
+    // `displayWidth`, not `width`. An Image's `width` is its texture's, which
+    // for a court is several hundred pixels of raster - a frame drawn round
+    // that is a rule down the middle of the felt.
+    const line = Math.max(1, this.metrics.width / 90);
+    return scene.add.rectangle(art.x, art.y,
+      art.displayWidth + line, art.displayHeight + line)
+      .setStrokeStyle(line, ink, 1)
+      .setFillStyle();
+  }
+
+  /**
    * Swap the pip for the portrait if that texture turns up later.
    *
    * Phaser has no per-key texture event, so this listens to all of them and
@@ -458,6 +486,12 @@ export class CardSprite<S extends string = Suit> extends Phaser.GameObjects.Cont
       this.faceParts.unshift(art);
       this.addAt(art, this.getIndex(this.back) + 1);
       art.setVisible(this.shownFace);
+      if (this.metrics.court.cut === 'full') {
+        const frame = this.courtFrame(scene, art, this.courtInk);
+        this.faceParts.unshift(frame);
+        this.addAt(frame, this.getIndex(art));
+        frame.setVisible(this.shownFace);
+      }
     };
     scene.textures.on(Phaser.Textures.Events.ADD, onAdd);
     this.once(Phaser.GameObjects.Events.DESTROY, () => {

@@ -235,3 +235,52 @@ describe('the pips on a card', () => {
     }
   });
 });
+
+// A real court is double-ended and sits in a ruled panel with the corners
+// beside it. The mobile face is the exception and says so: one figure, full
+// bleed, because it has one index and the whole bottom of the card to give.
+describe('where a court goes', () => {
+  const art = { width: 298, height: 501 };
+
+  it('bleeds one figure across the bottom on the mobile face', () => {
+    const metrics = cardFaceMetrics(60, 'mobile');
+    expect(metrics.court.cut).toBe('half');
+    const rect = courtArtRect(metrics, { width: 298, height: 250 });
+    expect(rect.width).toBe(metrics.width);
+    expect(rect.y + rect.height / 2).toBeCloseTo(metrics.height / 2);
+  });
+
+  it('frames both figures in the middle on the printed faces', () => {
+    for (const face of ['standard', 'jumbo'] as const) {
+      const metrics = cardFaceMetrics(60, face);
+      expect(metrics.court.cut).toBe('full');
+      const rect = courtArtRect(metrics, art);
+      expect(rect.x).toBe(0);
+      expect(rect.y).toBe(0);
+      expect(rect.width).toBeLessThan(metrics.width);
+      expect(rect.height).toBeLessThan(metrics.height);
+      // And it keeps the art's own shape rather than stretching it.
+      expect(rect.width / rect.height).toBeCloseTo(art.width / art.height, 3);
+    }
+  });
+
+  // The panel has to start inboard of the corner, or the rank is printed on
+  // the frame. How wide that corner really is depends on the text the browser
+  // lays out, so the exact clearance is a smoke check; what is worth pinning
+  // here is that the panel leaves room for a corner at all - one glyph and
+  // the suit under it, bounded generously by the index's own font size.
+  it('leaves the corners room beside the panel', () => {
+    for (const face of ['standard', 'jumbo'] as const) {
+      const metrics = cardFaceMetrics(60, face);
+      const panelLeft = -courtArtRect(metrics, art).width / 2;
+      expect(panelLeft, face).toBeLessThan(metrics.index.x + metrics.index.fontSize);
+    }
+  });
+
+  // A wider corner needs a narrower panel, which is the trade jumbo makes
+  // everywhere else on the card too.
+  it('narrows the panel as the index grows', () => {
+    expect(cardFaceMetrics(60, 'jumbo').court.panel)
+      .toBeLessThan(cardFaceMetrics(60, 'standard').court.panel);
+  });
+});

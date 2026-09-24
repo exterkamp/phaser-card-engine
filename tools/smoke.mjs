@@ -895,6 +895,59 @@ check(clear.standard === 0 && clear.jumbo === 0,
   `a ten's index is printed on none of its pips `
   + `(standard ${clear.standard}, jumbo ${clear.jumbo})`);
 
+// A real court is double-ended - one figure and the same figure upside down -
+// in a ruled panel with the corners beside it. The mobile face is the one
+// that is not, by choice: one figure, full bleed, twice the size.
+const courts = JSON.parse(await evaluate(`(() => {
+  const s = ${faces};
+  const out = {};
+  for (const face of ['mobile', 'standard', 'jumbo']) {
+    const card = s.cards.find(c => c.card.id === face + '-K');
+    const art = card.list.find(o => o.type === 'Image' && o.texture.key.includes('court'));
+    const frame = card.list.find(o => o.type === 'Rectangle');
+    out[face] = {
+      cut: card.metrics.court.cut,
+      // Twice as tall as it is wide for two figures; about four-fifths for
+      // one. The texture's own shape, not the card's.
+      shape: art ? +(art.height / art.width).toFixed(2) : 0,
+      wide: art ? +(art.displayWidth / card.metrics.width).toFixed(2) : 0,
+      framed: !!frame,
+    };
+  }
+  return JSON.stringify(out);
+})()`));
+check(courts.mobile.cut === 'half' && courts.standard.cut === 'full'
+  && courts.jumbo.cut === 'full',
+  `one figure on the mobile face and both on the printed ones `
+  + `(${courts.mobile.cut}/${courts.standard.cut}/${courts.jumbo.cut})`);
+check(courts.standard.shape > courts.mobile.shape * 1.9,
+  `and the double-ended art is twice as tall (${courts.mobile.shape} -> ${courts.standard.shape})`);
+check(courts.mobile.wide === 1 && courts.standard.wide < 0.8,
+  `full bleed on one and a framed panel on the other `
+  + `(${courts.mobile.wide} / ${courts.standard.wide} of the card)`);
+check(!courts.mobile.framed && courts.standard.framed && courts.jumbo.framed,
+  'and only the framed ones are ruled');
+
+// The corner and the panel just touch on a printed card - measured off one -
+// so what is checked is that the rank is not printed *over* the frame.
+const corner = JSON.parse(await evaluate(`(() => {
+  const s = ${faces};
+  const out = {};
+  for (const face of ['standard', 'jumbo']) {
+    const card = s.cards.find(c => c.card.id === face + '-K');
+    const index = card.list.find(o => o.type === 'Text');
+    const frame = card.list.find(o => o.type === 'Rectangle');
+    // How far the corner reaches past the frame's edge, as a fraction of the
+    // card. A real one overlaps by about 0.016.
+    out[face] = +(((index.x + index.width) - (frame.x - frame.width / 2))
+      / card.metrics.width).toFixed(3);
+  }
+  return JSON.stringify(out);
+})()`));
+check(corner.standard < 0.05 && corner.jumbo < 0.06,
+  `the rank sits beside the panel rather than on it `
+  + `(standard ${corner.standard}, jumbo ${corner.jumbo} of the card)`);
+
 check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors[0]}` : ''}`);
 console.log(failures ? `\n${failures} failed` : '\nall good');
 done(failures ? 1 : 0);
