@@ -515,6 +515,14 @@ grown back a bounded handful of pixels at full resolution to take the rim the
 grid left — bounded, because a growth that cannot run more than `GROW` pixels
 cannot cross a figure to reach a face however the drawing is shaped.
 
+It runs on the **cropped** art rather than the whole page, and starts from the
+top edge plus the upper part of the sides. Some background is walled off from
+the card's margin by the figure itself — the wedge under the Queen of clubs'
+headdress is closed at the page and open at the edge of the cut — so the crop
+is what lets an edge reach it. The bottom is never a seed: the art is a bust
+bleeding off the card there, so the edge is the figure's own body and starting
+from it floods a sleeve.
+
 Edges are blended rather than switched, so the figure keeps its antialiasing
 instead of gaining a pale fringe against a dark stock.
 

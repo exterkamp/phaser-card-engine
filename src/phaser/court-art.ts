@@ -103,12 +103,6 @@ export async function renderCourt(
       pen.fillRect(wipe.x, wipe.y, wipe.width, wipe.height);
     }
 
-    // And the background goes back to the stock, where they differ. A deck
-    // that has not asked for the two to differ pays nothing for this.
-    if (paper.toLowerCase() !== highlight.toLowerCase()) {
-      partBackground(pen, source.width, source.height, highlight, paper);
-    }
-
     const crop = courtCropRect(source);
     const out = document.createElement('canvas');
     out.width = Math.round(width);
@@ -116,6 +110,17 @@ export async function renderCourt(
     const cut = out.getContext('2d');
     if (!cut) throw new Error('court art: no 2d context');
     cut.drawImage(page, crop.x, crop.y, crop.width, crop.height, 0, 0, out.width, out.height);
+
+    // And the background goes back to the stock, where they differ. A deck
+    // that has not asked for the two to differ pays nothing for this.
+    //
+    // After the crop, not before. Some of the background is walled off from
+    // the card's margin by the figure itself - the wedge under a Queen's
+    // headdress is closed at the page but open at the edge of the cut - so
+    // running this on the finished art is what lets the edges reach it.
+    if (paper.toLowerCase() !== highlight.toLowerCase()) {
+      partBackground(cut, out.width, out.height, highlight, paper);
+    }
 
     // addCanvas rather than addImage: the canvas is the texture's own source,
     // so nothing has to be kept alive on this side afterwards.
@@ -177,6 +182,10 @@ function partBackground(
   // that is really background.
   const CELL = 4;
   const GROW = 6;
+  // How far down the sides to start from. The art is a bust bleeding off the
+  // bottom of the card, so below this the edges are the figure's own body and
+  // seeding there floods a sleeve. Above it they are still sky.
+  const SIDES = 0.6;
 
   const distance2 = (at: number) => {
     const dr = data[at] - source[0];
@@ -210,8 +219,11 @@ function partBackground(
     outside[cell] = 1;
     cells.push(cell);
   };
-  for (let cx = 0; cx < columns; cx++) { seed(cx, 0); seed(cx, rows - 1); }
-  for (let cy = 0; cy < rows; cy++) { seed(0, cy); seed(columns - 1, cy); }
+  // The top edge is sky the whole way across. The sides are only sky while
+  // the figure is still a head and shoulders; the bottom never is, because
+  // the art bleeds off the card there.
+  for (let cx = 0; cx < columns; cx++) seed(cx, 0);
+  for (let cy = 0; cy < rows * SIDES; cy++) { seed(0, cy); seed(columns - 1, cy); }
   while (cells.length) {
     const cell = cells.pop() as number;
     const cx = cell % columns;

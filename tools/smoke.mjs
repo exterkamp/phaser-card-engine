@@ -412,6 +412,39 @@ check(dark.pale > 0.08 && dark.pale < 0.21,
   `and the figure keeps its face and linen while the ground goes dark `
   + `(${(dark.pale * 100).toFixed(1)}% pale)`);
 
+// Stranded background. The bug this catches was a pale wedge under a Queen's
+// headdress: background walled off from the card's margin by the figure, too
+// small to move the share-of-art number and invisible on three cards out of
+// four. What gives it away is where it sits - above the shoulder line the
+// left and right edges of the art are sky, so pale pixels there are
+// background that never got repainted.
+const stranded = JSON.parse(await evaluate(`(() => {
+  const s = ${editor};
+  const out = [];
+  for (const sprite of s.cards) {
+    for (const o of sprite.list) {
+      if (o.type !== 'Image' || !o.texture.key.startsWith('pce-court-svg')) continue;
+      const src = s.textures.get(o.texture.key).getSourceImage();
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const x = c.getContext('2d');
+      x.drawImage(src, 0, 0);
+      const top = Math.floor(src.height * 0.6);
+      let pale = 0;
+      for (const column of [0, 1, src.width - 2, src.width - 1]) {
+        const d = x.getImageData(column, 0, 1, top).data;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 190) pale++;
+        }
+      }
+      out.push(pale);
+    }
+  }
+  return JSON.stringify(out);
+})()`));
+check(stranded.length === 4 && stranded.every((n) => n < 40),
+  `no background stranded along the edges of the art (${stranded.join(', ')} px)`);
+
 // And none of it reached the rules.
 const rules = JSON.parse(await evaluate('JSON.stringify(window.__deck.rules)'));
 check(rules.hearts === 'red' && rules.spades === 'black',
