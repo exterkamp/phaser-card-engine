@@ -140,6 +140,31 @@ export const COURT_PALETTES: Record<DeckTheme, CourtPalette> = {
     ink: '#b06cff', gold: '#ffe14d', red: '#ff2d95',
     paper: '#14082a', highlight: '#3a1d5c',
   },
+  // Dark stock decks keep a light `highlight` so the faces do not vanish.
+  midnight: {
+    ink: '#3c4a74', gold: '#d9c27a', red: '#c4564e',
+    paper: '#12182b', highlight: '#e9edf6',
+  },
+  casino: {
+    ink: '#8a6d1f', gold: '#e6bd4a', red: '#b01e38',
+    paper: '#0d0d10', highlight: '#f3e6c4',
+  },
+  arctic: {
+    ink: '#3f7e9c', gold: '#ffffff', red: '#d9648a',
+    paper: '#0e1a2e', highlight: '#e8f6fb',
+  },
+  delft: {
+    ink: '#183a8c', gold: '#d6a53a', red: '#d2543c',
+    paper: '#fbfcff', highlight: '#fbfcff',
+  },
+  blush: {
+    ink: '#5a2b55', gold: '#d9a38c', red: '#c9606f',
+    paper: '#fbf0e4', highlight: '#fdf7ef',
+  },
+  newsprint: {
+    ink: '#3a3a3a', gold: '#a9a9a6', red: '#d42a1e',
+    paper: '#e9e9e6', highlight: '#f4f4f1',
+  },
 };
 
 const RGB = (hex: string): [number, number, number] => [

@@ -4,7 +4,7 @@ import { cardAssetBase } from './assets.js';
 // border.
 //
 // A theme is a palette and a back. The courts it names are rendered from the
-// twelve SVG sources - see court.ts, where COURT_PALETTES holds the seven -
+// twelve SVG sources - see court.ts, where COURT_PALETTES holds them -
 // and only the back is a file, under assets/cards/art/<theme>/back.webp.
 //
 // This file and that art are the reason the package exists: both games had
@@ -21,6 +21,12 @@ export const DECK_THEMES = [
   'millionaire',
   'matrix',
   'neon',
+  'midnight',
+  'casino',
+  'arctic',
+  'delft',
+  'blush',
+  'newsprint',
 ] as const;
 
 export type DeckTheme = (typeof DECK_THEMES)[number];
@@ -36,6 +42,12 @@ export const DECK_THEME_LABELS: Record<DeckTheme, string> = {
   millionaire: 'Millionaire',
   matrix: 'Matrix',
   neon: 'Neon',
+  midnight: 'Midnight',
+  casino: 'Casino Night',
+  arctic: 'Arctic',
+  delft: 'Delft',
+  blush: 'Blush',
+  newsprint: 'Newsprint',
 };
 
 /**
@@ -100,6 +112,22 @@ export const DECK_STOCK: Record<DeckTheme, DeckStock> = {
   // two gases that actually glow those colours, and as far apart as two
   // inks on one card can get.
   neon: { paper: 0x14082a, red: 0xff2d95, black: 0x00e5ff, back: 0x1b0a2b },
+  // Six palettes over the same courts. Each is checked for the one rule that
+  // matters in solitaire - the two inks sort by lightness as well as by hue -
+  // and every dark one sets `highlight` in COURT_PALETTES.
+  //
+  // Night play: deep navy, coral against silver-ivory.
+  midnight: { paper: 0x12182b, red: 0xff7f6e, black: 0xe4e6dc, back: 0x1f3a5f },
+  // Felt and chips: near-black, crimson hearts against gold clubs.
+  casino: { paper: 0x0d0d10, red: 0xe8314a, black: 0xe6bd4a, back: 0x7a2e35 },
+  // Cold and clean: ink blue, rose pink against icy cyan.
+  arctic: { paper: 0x0e1a2e, red: 0xff6f9c, black: 0x9fe8ff, back: 0x2a5866 },
+  // Glazed tile: white, brick red against cobalt.
+  delft: { paper: 0xfbfcff, red: 0xd2543c, black: 0x183a8c, back: 0x1f3a5f },
+  // Soft and warm: cream, dusty rose against plum.
+  blush: { paper: 0xfbf0e4, red: 0xc9606f, black: 0x4a2145, back: 0x5e3a5c },
+  // Flat and high contrast: grey-white, one signal red against charcoal.
+  newsprint: { paper: 0xe9e9e6, red: 0xd42a1e, black: 0x1c1c1c, back: 0x0a1410 },
 };
 
 /**
