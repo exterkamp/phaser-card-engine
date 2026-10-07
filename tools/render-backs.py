@@ -88,6 +88,29 @@ BACKS = {
     'neon': {'field': 'rays', 'medallion': 'circle', 'medallion_r': 0.170,
              'border': 'chain', 'step': 0.120, 'units': (0.56, 0.30),
              'lobes': (11, 7), 'corners': True, 'ink': (252, 236, 255)},
+
+    # The six that are palettes over the same courts. Like every other back
+    # here they differ in geometry rather than in ink, so each deck at a table
+    # is told apart by something other than its colour. Combinations not yet
+    # taken: no two of these share a field, a medallion and a border.
+    'midnight': {'field': 'rosette', 'medallion': 'quatrefoil', 'medallion_r': 0.170,
+                 'border': 'scallop', 'step': 0.120, 'units': (0.56, 0.28),
+                 'lobes': (8, 5), 'ink': (232, 238, 250)},
+    'casino': {'field': 'diaper', 'medallion': 'square', 'medallion_r': 0.140,
+               'border': 'chain', 'step': 0.060, 'units': (0.58, 0.30),
+               'lobes': (9, 6), 'corners': True, 'ink': (252, 240, 205)},
+    'arctic': {'field': 'rays', 'medallion': 'lozenge', 'medallion_r': 0.130,
+               'border': 'double', 'step': 0.140, 'units': (0.56, 0.30),
+               'lobes': (7, 5), 'ink': (232, 248, 252)},
+    'delft': {'field': 'plaid', 'medallion': 'quatrefoil', 'medallion_r': 0.160,
+              'border': 'palmette', 'step': 0.090, 'units': (0.58, 0.30),
+              'lobes': (7, 5), 'ink': (240, 244, 252)},
+    'blush': {'field': 'scales', 'medallion': 'oval', 'medallion_r': 0.165,
+              'border': 'double', 'step': 0.200, 'units': (0.54, 0.28),
+              'lobes': (8, 5), 'ink': (252, 238, 238)},
+    'newsprint': {'field': 'grid', 'medallion': 'circle', 'medallion_r': 0.140,
+                  'border': 'single', 'step': 0.110, 'units': (0.60, 0.32),
+                  'lobes': (6, 4), 'ink': (244, 244, 244)},
 }
 
 

@@ -115,4 +115,27 @@ describe('back colors', () => {
     expect(asBackColor('ff00ff')).toBe(DEFAULT_BACK_COLOR);
     expect(asBackColor(undefined)).toBe(DEFAULT_BACK_COLOR);
   });
+
+  const luma = (c: number) =>
+    0.2126 * ((c >> 16) & 255) + 0.7152 * ((c >> 8) & 255) + 0.0722 * (c & 255);
+
+  it('adds the six palette decks under stable ids', () => {
+    for (const id of ['midnight', 'casino', 'arctic', 'delft', 'blush', 'newsprint']) {
+      expect(DECK_THEMES).toContain(id);
+      expect(asDeckTheme(id)).toBe(id);
+    }
+    expect(DECK_THEME_LABELS.casino).toBe('Casino Night');
+  });
+
+  // The engine's rule for every deck: the two inks are separable by
+  // lightness as well as hue, on the deck's own stock.
+  it('keeps the two suit inks apart by lightness, and both readable on the stock', () => {
+    for (const theme of DECK_THEMES) {
+      const { paper, red, black } = DECK_STOCK[theme];
+      if (theme === 'matrix') continue; // two phosphors; sorted by hue by design
+      expect(Math.abs(luma(red) - luma(black)), `${theme} red vs black`).toBeGreaterThan(40);
+      expect(Math.abs(luma(red) - luma(paper)), `${theme} red vs paper`).toBeGreaterThan(50);
+      expect(Math.abs(luma(black) - luma(paper)), `${theme} black vs paper`).toBeGreaterThan(50);
+    }
+  });
 });

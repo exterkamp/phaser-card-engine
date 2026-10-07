@@ -247,6 +247,16 @@ describe('the palettes', () => {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
 
+  it('lets a dark deck keep a light face', () => {
+    for (const theme of DECK_THEMES) {
+      const palette = COURT_PALETTES[theme];
+      if (luma(palette.paper ?? '#ffffff') < 80) {
+        expect(palette.highlight, theme).toBeDefined();
+        expect(luma(palette.highlight!), theme).toBeGreaterThan(luma(palette.paper!));
+      }
+    }
+  });
+
   it('keeps every ink between black and paper, with room either side', () => {
     for (const theme of DECK_THEMES) {
       const ink = luma(COURT_PALETTES[theme].ink);
