@@ -565,6 +565,16 @@ still answers `'red'`, which is the distinction `ink.ts` exists for. And
 `back` is a suggestion, not a setting — the back color belongs to the player,
 because in a four-handed game it is which seat they are.
 
+Where the browser has `Worker`, `OffscreenCanvas` and `createImageBitmap`,
+`renderCourts` paints off the main thread: the page decodes each SVG and
+resizes it (the one step that needs a document), a worker draws, crops and
+recolours it, and the page adds the result as a texture. Nothing to configure.
+The worker is built from a blob, started on the first portrait, let go after
+three idle seconds (`disposeCourtWorker()` lets go of it now), and if it cannot
+start or dies the same call falls back to painting on the main thread, with
+identical pixels. A page whose Content-Security-Policy sets `worker-src` needs
+`blob:` in it; one that does not set it needs nothing.
+
 `renderCourts` is async, but it does not have to be awaited. A card built
 before its portrait has rendered shows its big centre pip and swaps the
 portrait in when it lands, so a game can start its render and build its deck
